@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, fmtBytes, fmtDate, fmtNum, pct, type Sender } from "./api";
+import { api, fmtBytes, fmtDate, fmtNum, pct, PROVIDER, type AccountShare, type Sender } from "./api";
 
 type Filter = "all" | "newsletters" | "mostly-unread";
 type Sort = "count" | "bytes" | "unread" | "last";
@@ -125,11 +125,12 @@ export function SendersTable(props: {
       )}
 
       <div className="overflow-x-auto rounded-xl border border-line bg-card">
-        <table className="w-full min-w-[640px] text-sm [&_td]:whitespace-nowrap">
+        <table className="w-full min-w-[860px] text-sm [&_td]:whitespace-nowrap">
           <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-subtle">
             <tr>
               <th className="w-10 px-3 py-2.5"><input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all" /></th>
               <th className="px-2 py-2.5">Sender</th>
+              <th className="px-2 py-2.5">Account</th>
               <th className="px-2 py-2.5 text-right">Emails</th>
               <th className="px-2 py-2.5 text-right">Size</th>
               <th className="px-2 py-2.5 text-right">Unread</th>
@@ -143,15 +144,20 @@ export function SendersTable(props: {
               return (
                 <tr key={r.email} className={`border-b border-line last:border-0 ${selected.has(r.email) ? "bg-accent/5" : "hover:bg-muted"}`}>
                   <td className="px-3 py-2.5"><input type="checkbox" checked={selected.has(r.email)} onChange={() => toggle(r.email)} aria-label={`Select ${r.email}`} /></td>
-                  <td className="max-w-0 w-full px-2 py-2.5" style={{ whiteSpace: "normal" }}>
+                  <td className="w-full max-w-0 min-w-[220px] px-2 py-2.5" style={{ whiteSpace: "normal" }}>
                     <div className="flex items-center gap-3">
                       <Avatar name={r.name || r.email} />
                       <div className="min-w-0">
                         <div className="truncate font-medium">{r.name || r.email}</div>
                         <div className="truncate text-xs text-subtle">
-                          {r.email}{!accountId && r.accounts.includes(",") && <> · <span title={r.accounts}>{r.accounts.split(",").length} accounts</span></>}
+                          {r.email}
                         </div>
                       </div>
+                    </div>
+                  </td>
+                  <td className="px-2 py-2.5">
+                    <div className="flex flex-col items-start gap-1">
+                      {r.byAccount.map((s) => <AccountChip key={s.account_id} share={s} showCount={r.byAccount.length > 1} />)}
                     </div>
                   </td>
                   <td className="px-2 py-2.5 text-right tabular-nums font-medium">{fmtNum(r.count)}</td>
@@ -180,7 +186,7 @@ export function SendersTable(props: {
               );
             })}
             {data.rows.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-10 text-center text-subtle">No senders found.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-10 text-center text-subtle">No senders found.</td></tr>
             )}
           </tbody>
         </table>
@@ -198,6 +204,20 @@ export function SendersTable(props: {
     </div>
   );
 }
+
+/** Shows which connected inbox an email count belongs to, e.g. "G ravimehra9911@gmail.com · 120". */
+export function AccountChip({ share, showCount = true }: { share: Pick<AccountShare, "provider" | "email"> & { count?: number }; showCount?: boolean }) {
+  const p = PROVIDER[share.provider];
+  return (
+    <span title={`${p.label}: ${share.email}`}
+      className="inline-flex max-w-[230px] items-center gap-1.5 rounded-md border border-line px-1.5 py-0.5 text-xs">
+      <span className="font-bold" style={{ color: p.color }}>{p.icon}</span>
+      <span className="truncate">{share.email}</span>
+      {showCount && share.count !== undefined && <span className="tabular-nums text-subtle">· {fmtNum(share.count)}</span>}
+    </span>
+  );
+}
+
 
 const HUES = [210, 340, 160, 30, 270, 190, 10, 120];
 

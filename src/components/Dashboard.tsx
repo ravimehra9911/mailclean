@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, fmtBytes, fmtNum, pct, type Account, type Overview } from "./api";
-import { SendersTable } from "./SendersTable";
+import { api, fmtBytes, fmtNum, pct, PROVIDER, type Account, type Overview } from "./api";
+import { AccountChip, SendersTable } from "./SendersTable";
 import { VolumeChart } from "./VolumeChart";
 
 type Tab = "overview" | "senders" | "newsletters" | "accounts";
@@ -80,7 +80,7 @@ export default function Dashboard() {
         </nav>
       </aside>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">
+      <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 md:px-8">
         {accounts.length === 0 ? (
           <Welcome configured={configured} onConnected={changed} toast={toast} />
         ) : (
@@ -91,16 +91,39 @@ export default function Dashboard() {
                 <select value={accountId} onChange={(e) => setAccountId(e.target.value)}
                   className="ml-auto h-9 rounded-lg border border-line bg-card px-2 text-sm">
                   <option value="">All accounts ({accounts.length})</option>
-                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.email}</option>)}
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{PROVIDER[a.provider].label} · {a.email}</option>)}
                 </select>
               )}
             </header>
 
             {syncing && tab !== "accounts" && <SyncBanner accounts={accounts} />}
+            {tab === "overview" && accounts.filter((a) => a.notice && (!accountId || a.id === accountId)).map((a) => (
+              <div key={a.id} className="mb-6 rounded-xl border border-[#b7791f]/40 bg-[#b7791f]/10 px-5 py-3 text-sm">
+                <b>{a.email}:</b> {a.notice}
+              </div>
+            ))}
 
             {tab === "overview" && ov && (
               <div className="space-y-6">
                 <Summary ov={ov} onMostlyUnread={() => setTab("senders")} />
+                {!accountId && ov.byAccount.length > 1 && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {ov.byAccount.map((s) => (
+                      <button key={s.account_id} onClick={() => setAccountId(s.account_id)}
+                        className="rounded-xl border border-line bg-card px-5 py-4 text-left hover:border-accent">
+                        <AccountChip share={s} showCount={false} />
+                        <div className="mt-2 flex items-baseline gap-2">
+                          <span className="text-2xl font-semibold tabular-nums">{fmtNum(s.count)}</span>
+                          <span className="text-sm text-subtle">emails · {fmtBytes(s.bytes)} · {pct(s.count ? s.unread / s.count : 0)} unread</span>
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full" style={{ width: pct(ov.emails ? s.count / ov.emails : 0), background: PROVIDER[s.provider].color }} />
+                        </div>
+                        <div className="mt-1 text-xs text-subtle">{pct(ov.emails ? s.count / ov.emails : 0)} of all your mail · click to view only this inbox</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <Stat label="Emails" value={fmtNum(ov.emails)} />
                   <Stat label="Storage used" value={fmtBytes(ov.bytes)} />
@@ -302,6 +325,7 @@ function Accounts({ accounts, configured, reload, toast }: {
                   : a.sync_status === "error" ? `Error: ${a.sync_error}`
                   : a.last_sync_at ? `${fmtNum(a.synced)} emails · scanned ${new Date(a.last_sync_at).toLocaleString("en-IN")}` : "Not scanned yet"}
               </div>
+              {a.notice && <div className="mt-1 text-xs text-[#b7791f]">⚠ {a.notice}</div>}
             </div>
             <button disabled={a.sync_status === "syncing"} onClick={() => resync(a)} className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50">Rescan</button>
             <button onClick={() => disconnect(a)} className="rounded-lg border border-line px-3 py-1.5 text-sm text-danger hover:bg-danger/10">Disconnect</button>

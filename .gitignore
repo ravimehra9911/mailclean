@@ -43,3 +43,6 @@ next-env.d.ts
 # local data (database, encryption key)
 .data/
 .claude/
+
+# Google OAuth client file downloaded from Cloud Console
+client_secret_*.json

@@ -11,6 +11,9 @@ export type ImapProvider = keyof typeof IMAP_HOSTS;
 
 const SKIP = new Set(["\\Trash", "\\Junk", "\\Sent", "\\Drafts"]);
 
+// Yahoo's IMAP server only exposes the newest 10,000 messages of each folder.
+export const IMAP_FOLDER_CAP = 10_000;
+
 function client(provider: ImapProvider, email: string, password: string) {
   const { host, port } = IMAP_HOSTS[provider];
   return new ImapFlow({ host, port, secure: true, auth: { user: email, pass: password }, logger: false });
@@ -57,7 +60,10 @@ export async function imapSync(
   provider: ImapProvider,
   email: string,
   password: string,
-  hooks: { onTotal: (n: number) => void; onBatch: (rows: MessageMeta[]) => void; onSeen: (id: string) => void; limit: number },
+  hooks: {
+    onTotal: (n: number) => void; onBatch: (rows: MessageMeta[]) => void; onSeen: (id: string) => void; limit: number;
+    onCapped: (folders: string[]) => void;
+  },
 ): Promise<boolean> {
   return withClient(provider, email, password, async (c) => {
     const list = await folders(c);
@@ -66,6 +72,7 @@ export async function imapSync(
     hooks.onTotal(Math.min(total, hooks.limit));
 
     let walked = 0;
+    const capped: string[] = [];
     for (const f of list) {
       if (walked >= hooks.limit) return false;
       const lock = await c.getMailboxLock(f.path, { readOnly: true });
@@ -73,6 +80,7 @@ export async function imapSync(
         const box = c.mailbox;
         if (!box || !box.exists) continue;
         const inInbox = f.specialUse === "\\Inbox" || f.path.toUpperCase() === "INBOX";
+        if (box.exists >= IMAP_FOLDER_CAP) capped.push(inInbox ? "Inbox" : f.name || f.path);
         let batch: MessageMeta[] = [];
         // One FETCH streams headers for the whole folder — far faster than per-message API calls.
         for await (const m of c.fetch("1:*", {
@@ -106,6 +114,7 @@ export async function imapSync(
         lock.release();
       }
     }
+    hooks.onCapped(capped);
     return walked < hooks.limit;
   });
 }

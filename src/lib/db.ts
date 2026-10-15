@@ -57,6 +57,9 @@ export function db(): DatabaseSyncType {
     const d = new DatabaseSync(path.join(DATA_DIR, "mailclean.db"));
     d.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
     d.exec(SCHEMA);
+    // Migrations for databases created by earlier versions.
+    const cols = (d.prepare("PRAGMA table_info(accounts)").all() as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("notice")) d.exec("ALTER TABLE accounts ADD COLUMN notice TEXT");
     // A scan can't survive a server restart; let the user resume it (stored emails are skipped).
     d.prepare("UPDATE accounts SET sync_status = 'error', sync_error = 'Scan was interrupted — click Rescan to continue' WHERE sync_status = 'syncing'").run();
     g.__mailcleanDb = d;
@@ -80,6 +83,7 @@ export interface AccountRow {
   total: number;
   last_sync_at: number | null;
   created_at: number;
+  notice: string | null; // informational message shown on the account, e.g. provider limits
 }
 
 export interface MessageMeta {

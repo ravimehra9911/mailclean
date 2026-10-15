@@ -9,6 +9,16 @@ export interface Overview {
   senders: number;
   newsletters: number;
   daily: { day: string; count: number }[];
+  byAccount: AccountShare[];
+}
+
+export interface AccountShare {
+  account_id: string;
+  provider: string;
+  email: string;
+  count: number;
+  bytes: number;
+  unread: number;
 }
 
 export interface SenderRow {
@@ -21,6 +31,7 @@ export interface SenderRow {
   first: number;
   last: number;
   accounts: string; // comma-separated account emails
+  byAccount: AccountShare[]; // how many of this sender's emails are in each connected account
   can_unsub: number;
   unsubscribed: number;
 }
@@ -43,6 +54,10 @@ export function overview(accountId?: string, days = 180): Overview {
   const since = Date.now() - days * 86_400_000;
   const daily = d.prepare(`SELECT strftime('%Y-%m-%d', date / 1000, 'unixepoch') day, COUNT(*) count FROM messages m
     ${w ? w + " AND" : "WHERE"} date >= ? GROUP BY day ORDER BY day`).all(...a, since) as { day: string; count: number }[];
+  const byAccount = d.prepare(`SELECT acc.id account_id, acc.provider, acc.email, COUNT(m.msg_id) count,
+    COALESCE(SUM(m.size),0) bytes, COALESCE(SUM(m.unread),0) unread
+    FROM accounts acc LEFT JOIN messages m ON m.account_id = acc.id
+    ${accountId ? "WHERE acc.id = ?" : ""} GROUP BY acc.id ORDER BY count DESC`).all(...a) as unknown as AccountShare[];
 
   return {
     emails: totals.emails,
@@ -53,6 +68,7 @@ export function overview(accountId?: string, days = 180): Overview {
     mostlyUnreadSenders: mostlyUnread.n,
     newsletters: newsletters.n,
     daily,
+    byAccount,
   };
 }
 
@@ -83,5 +99,19 @@ export function senders(opts: {
   const d = db();
   const total = (d.prepare(`SELECT COUNT(*) n FROM (${base})`).get(...a) as { n: number }).n;
   const rows = d.prepare(`${base} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...a, limit, offset) as unknown as SenderRow[];
+
+  // Per-account counts for the senders on this page.
+  for (const r of rows) r.byAccount = [];
+  if (rows.length) {
+    const marks = rows.map(() => "?").join(",");
+    const split = d.prepare(`SELECT m.from_email, acc.id account_id, acc.provider, acc.email, COUNT(*) count,
+        SUM(m.size) bytes, SUM(m.unread) unread
+      FROM messages m JOIN accounts acc ON acc.id = m.account_id
+      WHERE m.from_email IN (${marks}) ${accountId ? "AND m.account_id = ?" : ""}
+      GROUP BY m.from_email, acc.id ORDER BY count DESC`)
+      .all(...rows.map((r) => r.email), ...(accountId ? [accountId] : [])) as unknown as (AccountShare & { from_email: string })[];
+    const byEmail = new Map(rows.map((r) => [r.email, r]));
+    for (const { from_email, ...s } of split) byEmail.get(from_email)?.byAccount.push(s);
+  }
   return { rows, total };
 }

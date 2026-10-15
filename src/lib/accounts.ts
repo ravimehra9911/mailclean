@@ -3,7 +3,7 @@ import { db, getAccount, insertMessages, updateAccount, type AccountRow, type OA
 import { decrypt, encrypt } from "./crypto";
 import { google } from "./providers/google";
 import { microsoft } from "./providers/microsoft";
-import { imapArchive, imapSync, imapTrash, IMAP_HOSTS, type ImapProvider } from "./providers/imap";
+import { imapArchive, imapSync, imapTrash, IMAP_FOLDER_CAP, IMAP_HOSTS, type ImapProvider } from "./providers/imap";
 import type { MailProvider } from "./providers/types";
 
 export const providers: Record<OAuthProvider, MailProvider> = { google, microsoft };
@@ -99,7 +99,15 @@ async function runSync(a: AccountRow) {
       limit,
     };
     const complete = isImap(a.provider)
-      ? await imapSync(a.provider, a.email, decrypt(a.refresh_token!), hooks)
+      ? await imapSync(a.provider, a.email, decrypt(a.refresh_token!), {
+          ...hooks,
+          onCapped: (folders) => updateAccount(a.id, {
+            notice: folders.length
+              ? `${IMAP_HOSTS[a.provider as ImapProvider].label} only lets apps see the newest ${IMAP_FOLDER_CAP.toLocaleString("en-IN")} emails in ${folders.join(", ")}. `
+                + "Older emails appear automatically as you clean up — MailClean rescans after each clean-up."
+              : null,
+          }),
+        })
       : await providers[a.provider].sync({ ...hooks, getToken: () => accessToken(a.id), isKnown: (msgId) => known.has(msgId) });
     // Drop rows for mail that was deleted elsewhere (only safe after a full walk).
     if (complete) {
@@ -118,7 +126,10 @@ async function runSync(a: AccountRow) {
 export async function moveMessages(a: AccountRow, ids: string[], action: "trash" | "archive") {
   if (isImap(a.provider)) {
     const fn = action === "trash" ? imapTrash : imapArchive;
-    return fn(a.provider, a.email, decrypt(a.refresh_token!), ids);
+    await fn(a.provider, a.email, decrypt(a.refresh_token!), ids);
+    // Folders are capped (see IMAP_FOLDER_CAP); rescanning after a clean-up brings older mail into view.
+    if (a.notice) startSync(a.id);
+    return;
   }
   return providers[a.provider][action](await accessToken(a.id), ids);
 }

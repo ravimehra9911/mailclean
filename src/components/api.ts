@@ -9,6 +9,7 @@ export interface Account {
   synced: number;
   total: number;
   last_sync_at: number | null;
+  notice: string | null;
 }
 
 export interface Overview {
@@ -20,7 +21,23 @@ export interface Overview {
   senders: number;
   newsletters: number;
   daily: { day: string; count: number }[];
+  byAccount: AccountShare[];
 }
+
+export interface AccountShare {
+  account_id: string;
+  provider: Account["provider"];
+  email: string;
+  count: number;
+  bytes: number;
+  unread: number;
+}
+
+export const PROVIDER = {
+  google: { label: "Gmail", icon: "G", color: "#ea4335" },
+  yahoo: { label: "Yahoo", icon: "Y!", color: "#7e1fff" },
+  microsoft: { label: "Outlook", icon: "O", color: "#0078d4" },
+} as const;
 
 export interface Sender {
   email: string;
@@ -32,6 +49,7 @@ export interface Sender {
   first: number;
   last: number;
   accounts: string;
+  byAccount: AccountShare[];
   can_unsub: number;
   unsubscribed: number;
 }
