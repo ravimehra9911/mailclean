@@ -23,10 +23,7 @@ export async function cleanSenders(senders: string[], action: CleanAction, accou
     const acc = getAccount(accId);
     if (!acc) continue;
     try {
-      if (acc.provider !== "demo") {
-        const p = providers[acc.provider];
-        await p[action](await accessToken(accId), ids);
-      }
+      await providers[acc.provider][action](await accessToken(accId), ids);
       applyLocally(accId, ids, action);
       count += ids.length;
     } catch (e) {
@@ -54,19 +51,15 @@ export async function unsubscribe(sender: string): Promise<
   { status: "done" } | { status: "open"; url: string } | { status: "none" }
 > {
   const row = db().prepare(
-    `SELECT m.unsub_http, m.unsub_mailto, m.one_click, a.provider FROM messages m JOIN accounts a ON a.id = m.account_id
+    `SELECT m.unsub_http, m.unsub_mailto, m.one_click FROM messages m
      WHERE m.from_email = ? AND (m.unsub_http IS NOT NULL OR m.unsub_mailto IS NOT NULL)
      ORDER BY m.one_click DESC, m.date DESC LIMIT 1`,
-  ).get(sender) as { unsub_http: string | null; unsub_mailto: string | null; one_click: number; provider: string } | undefined;
+  ).get(sender) as { unsub_http: string | null; unsub_mailto: string | null; one_click: number } | undefined;
   if (!row) return { status: "none" };
 
   const mark = (method: string) =>
     db().prepare("INSERT OR REPLACE INTO unsubscribed (from_email, method, at) VALUES (?, ?, ?)").run(sender, method, Date.now());
 
-  if (row.provider === "demo") {
-    mark("demo");
-    return { status: "done" };
-  }
   if (row.one_click && row.unsub_http && (await isPublicHttps(row.unsub_http))) {
     const res = await fetch(row.unsub_http, {
       method: "POST",

@@ -16,8 +16,6 @@ cp .env.example .env.local   # then fill in the keys below
 npm run dev                  # http://localhost:3000
 ```
 
-Without any keys you can click **"explore with demo data"** to try the whole UI.
-
 ## Connect Gmail (Google Cloud)
 
 1. Go to <https://console.cloud.google.com> → create a project.
@@ -34,6 +32,8 @@ refresh tokens expire after **7 days**, so you will need to reconnect weekly. Pu
 requires Google verification plus a CASA security assessment because `gmail.modify` is a restricted scope.
 
 ## Connect Outlook / Hotmail / Microsoft 365 (Azure)
+
+> Hidden in the UI for now. Set `SHOW_OUTLOOK = true` in `src/components/Dashboard.tsx` to enable it.
 
 1. Go to <https://portal.azure.com> → **App registrations → New registration**.
    - Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**.

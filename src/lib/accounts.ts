@@ -5,7 +5,7 @@ import { google } from "./providers/google";
 import { microsoft } from "./providers/microsoft";
 import type { MailProvider } from "./providers/types";
 
-export const providers: Record<Exclude<Provider, "demo">, MailProvider> = { google, microsoft };
+export const providers: Record<Provider, MailProvider> = { google, microsoft };
 
 export function isConfigured(p: "google" | "microsoft") {
   return p === "google"
@@ -38,7 +38,7 @@ export function saveConnectedAccount(
 /** Valid access token for an account, refreshing it if it expires within a minute. */
 export async function accessToken(id: string): Promise<string> {
   const a = getAccount(id);
-  if (!a || a.provider === "demo") throw new Error("Unknown account");
+  if (!a) throw new Error("Unknown account");
   if (a.access_token && a.expires_at && a.expires_at > Date.now() + 60_000) return decrypt(a.access_token);
   if (!a.refresh_token) throw new Error("Session expired — reconnect this account");
   const t = await providers[a.provider].refresh(decrypt(a.refresh_token));
@@ -55,7 +55,7 @@ const running = ((globalThis as { __mailcleanSyncs?: Set<string> }).__mailcleanS
 /** Starts a background sync. Returns false if one is already running. */
 export function startSync(id: string): boolean {
   const a = getAccount(id);
-  if (!a || a.provider === "demo" || running.has(id)) return false;
+  if (!a || running.has(id)) return false;
   running.add(id);
   updateAccount(id, { sync_status: "syncing", sync_error: null, synced: 0 });
   runSync(a).finally(() => running.delete(id));
@@ -70,7 +70,7 @@ async function runSync(a: AccountRow) {
   const seen = new Set<string>();
   let lastWrite = 0;
   try {
-    const complete = await providers[a.provider as "google" | "microsoft"].sync({
+    const complete = await providers[a.provider].sync({
       getToken: () => accessToken(a.id),
       onTotal: (total) => updateAccount(a.id, { total }),
       onSeen: (msgId) => seen.add(msgId),

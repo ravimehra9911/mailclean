@@ -82,14 +82,11 @@ export default function Dashboard() {
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">
         {accounts.length === 0 ? (
-          <Welcome configured={configured} onDemo={async () => { await api("/api/demo", { method: "POST" }); await loadAccounts(); refresh(); }} />
+          <Welcome configured={configured} />
         ) : (
           <>
             <header className="mb-6 flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-semibold capitalize">{tab}</h1>
-              {accounts.some((a) => a.provider === "demo") && (
-                <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">Demo data</span>
-              )}
               {tab !== "accounts" && (
                 <select value={accountId} onChange={(e) => setAccountId(e.target.value)}
                   className="ml-auto h-9 rounded-lg border border-line bg-card px-2 text-sm">
@@ -183,7 +180,10 @@ function SyncBanner({ accounts }: { accounts: Account[] }) {
   );
 }
 
-const PROVIDER_LABEL = { google: "Gmail", microsoft: "Outlook", demo: "Demo" } as const;
+const PROVIDER_LABEL = { google: "Gmail", microsoft: "Outlook" } as const;
+
+// Outlook support is built (src/lib/providers/microsoft.ts) but hidden for now; set to true to bring it back.
+const SHOW_OUTLOOK = false;
 
 function ConnectButtons({ configured }: { configured: { google: boolean; microsoft: boolean } }) {
   return (
@@ -191,29 +191,27 @@ function ConnectButtons({ configured }: { configured: { google: boolean; microso
       <a href="/api/connect/google" className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-medium text-bg hover:opacity-90">
         <span className="font-bold text-[#ea4335]">G</span> Connect Gmail
       </a>
-      <a href="/api/connect/microsoft" className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-card px-4 text-sm font-medium hover:bg-muted">
-        <span className="font-bold text-[#0078d4]">◼</span> Connect Outlook / Hotmail
-      </a>
-      {(!configured.google || !configured.microsoft) && (
-        <p className="w-full text-xs text-subtle">
-          {!configured.google && "Gmail "}{!configured.google && !configured.microsoft && "and "}{!configured.microsoft && "Outlook "}
-          sign-in needs API keys in <code>.env.local</code> — see README.
-        </p>
+      {SHOW_OUTLOOK && (
+        <a href="/api/connect/microsoft" className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-card px-4 text-sm font-medium hover:bg-muted">
+          <span className="font-bold text-[#0078d4]">◼</span> Connect Outlook / Hotmail
+        </a>
+      )}
+      {!configured.google && (
+        <p className="w-full text-xs text-subtle">Gmail sign-in needs API keys in <code>.env.local</code> — see README.</p>
       )}
     </div>
   );
 }
 
-function Welcome({ configured, onDemo }: { configured: { google: boolean; microsoft: boolean }; onDemo: () => void }) {
+function Welcome({ configured }: { configured: { google: boolean; microsoft: boolean } }) {
   return (
     <div className="mx-auto max-w-xl py-16 text-center">
-      <h1 className="text-3xl font-semibold">All your inboxes. One clean-up.</h1>
+      <h1 className="text-3xl font-semibold">All your Gmail inboxes. One clean-up.</h1>
       <p className="mt-3 text-subtle">
-        Connect Gmail and Outlook accounts, see which senders fill them, unsubscribe from newsletters and trash
+        Connect your Gmail accounts, see which senders fill them, unsubscribe from newsletters and trash
         thousands of emails in a click. Only email metadata is read — never subjects or content.
       </p>
       <div className="mt-8 flex justify-center"><ConnectButtons configured={configured} /></div>
-      <button onClick={onDemo} className="mt-4 text-sm text-accent hover:underline">or explore with demo data →</button>
     </div>
   );
 }
@@ -221,7 +219,6 @@ function Welcome({ configured, onDemo }: { configured: { google: boolean; micros
 function Accounts({ accounts, configured, reload, toast }: {
   accounts: Account[]; configured: { google: boolean; microsoft: boolean }; reload: () => void; toast: (m: string, k?: "ok" | "err") => void;
 }) {
-  const hasDemo = accounts.some((a) => a.provider === "demo");
   async function disconnect(a: Account) {
     if (!confirm(`Disconnect ${a.email}? Its scanned data is deleted from MailClean. Your mailbox is not changed.`)) return;
     await api(`/api/accounts/${a.id}`, { method: "DELETE" });
@@ -239,7 +236,7 @@ function Accounts({ accounts, configured, reload, toast }: {
         <ConnectButtons configured={configured} />
       </section>
       <div className="overflow-hidden rounded-xl border border-line bg-card">
-        {accounts.filter((a) => a.provider !== "demo").map((a) => (
+        {accounts.map((a) => (
           <div key={a.id} className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-4 last:border-0">
             <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium">{PROVIDER_LABEL[a.provider]}</span>
             <div className="min-w-0 flex-1">
@@ -254,14 +251,6 @@ function Accounts({ accounts, configured, reload, toast }: {
             <button onClick={() => disconnect(a)} className="rounded-lg border border-line px-3 py-1.5 text-sm text-danger hover:bg-danger/10">Disconnect</button>
           </div>
         ))}
-        {hasDemo && (
-          <div className="flex flex-wrap items-center gap-3 px-5 py-4">
-            <span className="rounded-md bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">Demo</span>
-            <div className="flex-1 text-sm">{accounts.filter((a) => a.provider === "demo").map((a) => a.email).join(", ")}</div>
-            <button onClick={async () => { await api("/api/demo", { method: "DELETE" }); reload(); }}
-              className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-muted">Remove demo data</button>
-          </div>
-        )}
       </div>
     </div>
   );

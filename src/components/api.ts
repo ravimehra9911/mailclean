@@ -2,7 +2,7 @@
 
 export interface Account {
   id: string;
-  provider: "google" | "microsoft" | "demo";
+  provider: "google" | "microsoft";
   email: string;
   sync_status: "idle" | "syncing" | "done" | "error";
   sync_error: string | null;

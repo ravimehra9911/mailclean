@@ -1,6 +1,6 @@
 import type { MessageMeta } from "../db";
 import { parseFrom, parseListUnsubscribe } from "../headers";
-import { APP_URL, chunk, fetchJson, HttpError, pool, type MailProvider, type TokenSet } from "./types";
+import { APP_URL, chunk, fetchJson, HttpError, isQuotaError, pool, RateLimiter, type MailProvider, type TokenSet } from "./types";
 
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
 // gmail.modify is the narrowest scope that allows trash/archive. We still only request metadata.
@@ -83,31 +83,48 @@ export const google: MailProvider = {
   },
 
   async sync({ getToken, onTotal, onBatch, isKnown, onSeen, limit }) {
-    const profile = await fetchJson<{ messagesTotal: number }>(`${API}/profile`, { headers: auth(await getToken()) });
+    // Gmail charges quota units per call (profile 1, messages.list 5, messages.get 5) and caps units per user
+    // per minute. The cap varies by project, so the limiter adapts: start at 100 units/sec and back off on 403s.
+    const limiter = new RateLimiter(100);
+    const call = async <T>(units: number, url: string): Promise<T> => {
+      for (let attempt = 0; ; attempt++) {
+        await limiter.take(units);
+        try {
+          const r = await fetchJson<T>(url, { headers: auth(await getToken()) }, 4, false);
+          limiter.reward();
+          return r;
+        } catch (e) {
+          if (!isQuotaError(e) || attempt >= 8) throw e;
+          limiter.penalize(15_000);
+          console.warn(`[gmail quota] backing off; now ${limiter.unitsPerSecond.toFixed(0)} units/sec`);
+        }
+      }
+    };
+
+    const profile = await call<{ messagesTotal: number }>(1, `${API}/profile`);
     onTotal(Math.min(profile.messagesTotal, limit));
 
+    const metaQ = "format=metadata&metadataHeaders=From&metadataHeaders=List-Unsubscribe&metadataHeaders=List-Unsubscribe-Post"
+      + "&fields=id,labelIds,sizeEstimate,internalDate,payload/headers";
     let pageToken: string | undefined;
     let walked = 0;
     do {
       const q = new URLSearchParams({ maxResults: "500" });
       if (pageToken) q.set("pageToken", pageToken);
-      const page = await fetchJson<{ messages?: { id: string }[]; nextPageToken?: string }>(
-        `${API}/messages?${q}`, { headers: auth(await getToken()) });
+      const page = await call<{ messages?: { id: string }[]; nextPageToken?: string }>(5, `${API}/messages?${q}`);
       const ids = (page.messages ?? []).map((m) => m.id).slice(0, limit - walked);
       walked += ids.length;
-      ids.forEach(onSeen);
 
-      const fresh = ids.filter((id) => !isKnown(id));
-      const token = await getToken();
-      const metaQ = "format=metadata&metadataHeaders=From&metadataHeaders=List-Unsubscribe&metadataHeaders=List-Unsubscribe-Post"
-        + "&fields=id,labelIds,sizeEstimate,internalDate,payload/headers";
-      // messages.get costs 5 quota units; ~10 in flight stays under the 250 units/sec per-user limit.
-      const msgs = await pool(fresh, 10, (id) =>
-        fetchJson<GmailMessage>(`${API}/messages/${id}?${metaQ}`, { headers: auth(token) }).catch((e) => {
-          if (e instanceof HttpError && e.status === 404) return null; // deleted mid-sync
-          throw e;
-        }));
-      onBatch(msgs.filter((m): m is GmailMessage => !!m).map(toMeta));
+      // Save every 100 messages so an interrupted scan keeps its progress; a rescan skips stored ids.
+      for (const part of chunk(ids, 100)) {
+        const msgs = await pool(part.filter((id) => !isKnown(id)), 8, (id) =>
+          call<GmailMessage>(5, `${API}/messages/${id}?${metaQ}`).catch((e) => {
+            if (e instanceof HttpError && e.status === 404) return null; // deleted mid-sync
+            throw e;
+          }));
+        part.forEach(onSeen);
+        onBatch(msgs.filter((m): m is GmailMessage => !!m).map(toMeta));
+      }
 
       pageToken = page.nextPageToken;
     } while (pageToken && walked < limit);

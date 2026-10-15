@@ -10,7 +10,7 @@ export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data"
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS accounts (
   id            TEXT PRIMARY KEY,
-  provider      TEXT NOT NULL,            -- 'google' | 'microsoft' | 'demo'
+  provider      TEXT NOT NULL,            -- 'google' | 'microsoft'
   email         TEXT NOT NULL,
   access_token  TEXT,                     -- encrypted
   refresh_token TEXT,                     -- encrypted
@@ -44,7 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_date ON messages(date);
 
 CREATE TABLE IF NOT EXISTS unsubscribed (
   from_email TEXT PRIMARY KEY,
-  method     TEXT NOT NULL,              -- 'one-click' | 'link' | 'mailto' | 'demo'
+  method     TEXT NOT NULL,              -- 'one-click' | 'link' | 'mailto'
   at         INTEGER NOT NULL
 );
 `;
@@ -57,12 +57,14 @@ export function db(): DatabaseSyncType {
     const d = new DatabaseSync(path.join(DATA_DIR, "mailclean.db"));
     d.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
     d.exec(SCHEMA);
+    // A scan can't survive a server restart; let the user resume it (stored emails are skipped).
+    d.prepare("UPDATE accounts SET sync_status = 'error', sync_error = 'Scan was interrupted — click Rescan to continue' WHERE sync_status = 'syncing'").run();
     g.__mailcleanDb = d;
   }
   return g.__mailcleanDb;
 }
 
-export type Provider = "google" | "microsoft" | "demo";
+export type Provider = "google" | "microsoft";
 
 export interface AccountRow {
   id: string;
