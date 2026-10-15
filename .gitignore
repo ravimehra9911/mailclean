@@ -42,3 +42,4 @@ next-env.d.ts
 
 # local data (database, encryption key)
 .data/
+.claude/

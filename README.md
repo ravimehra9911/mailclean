@@ -1,6 +1,6 @@
 # MailClean
 
-Connect Gmail and Outlook accounts, see which senders fill every inbox, unsubscribe from newsletters and
+Connect Gmail and Yahoo accounts, see which senders fill every inbox, unsubscribe from newsletters and
 trash or archive thousands of emails per sender in one click.
 
 **Privacy:** only metadata is stored (sender, date, size, read/inbox status, unsubscribe link).
@@ -31,6 +31,19 @@ While the app is in **Testing** mode Google shows an "unverified app" warning (c
 refresh tokens expire after **7 days**, so you will need to reconnect weekly. Publishing for the public
 requires Google verification plus a CASA security assessment because `gmail.modify` is a restricted scope.
 
+## Connect Yahoo Mail (IMAP + app password)
+
+Yahoo has no public mail API for this, so MailClean connects over IMAP (`imap.mail.yahoo.com:993`).
+No developer keys are needed.
+
+1. Go to <https://login.yahoo.com/account/security>.
+2. Click **Generate app password** (or **Manage app passwords**), name it "MailClean", copy the 16-letter password.
+3. In MailClean: **Accounts → Connect Yahoo Mail**, enter your Yahoo address and the app password.
+
+The app password is stored encrypted like the OAuth tokens. All folders except Trash, Spam, Sent and Drafts are scanned;
+**Trash** moves mail to Yahoo's Trash folder and **Archive** moves Inbox mail to Archive. To revoke access,
+delete the app password on the same Yahoo page.
+
 ## Connect Outlook / Hotmail / Microsoft 365 (Azure)
 
 > Hidden in the UI for now. Set `SHOW_OUTLOOK = true` in `src/components/Dashboard.tsx` to enable it.
@@ -50,6 +63,7 @@ requires Google verification plus a CASA security assessment because `gmail.modi
 | Token encryption | `src/lib/crypto.ts` |
 | Gmail API (metadata sync, batch trash/archive) | `src/lib/providers/google.ts` |
 | Microsoft Graph (sync, `$batch` move to Deleted Items/Archive) | `src/lib/providers/microsoft.ts` |
+| IMAP (Yahoo): one FETCH per folder, move to Trash/Archive | `src/lib/providers/imap.ts` |
 | Background sync and token refresh | `src/lib/accounts.ts` |
 | Clean-up and unsubscribe (RFC 8058 one-click, SSRF-guarded) | `src/lib/actions.ts` |
 | Sender and overview queries | `src/lib/stats.ts` |

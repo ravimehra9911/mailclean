@@ -1,7 +1,7 @@
 import dns from "node:dns/promises";
 import net from "node:net";
 import { db, getAccount } from "./db";
-import { accessToken, providers } from "./accounts";
+import { moveMessages } from "./accounts";
 
 export type CleanAction = "trash" | "archive";
 
@@ -23,7 +23,7 @@ export async function cleanSenders(senders: string[], action: CleanAction, accou
     const acc = getAccount(accId);
     if (!acc) continue;
     try {
-      await providers[acc.provider][action](await accessToken(accId), ids);
+      await moveMessages(acc, ids, action);
       applyLocally(accId, ids, action);
       count += ids.length;
     } catch (e) {

@@ -1,11 +1,14 @@
 import crypto from "node:crypto";
-import { db, getAccount, insertMessages, updateAccount, type AccountRow, type Provider } from "./db";
+import { db, getAccount, insertMessages, updateAccount, type AccountRow, type OAuthProvider } from "./db";
 import { decrypt, encrypt } from "./crypto";
 import { google } from "./providers/google";
 import { microsoft } from "./providers/microsoft";
+import { imapArchive, imapSync, imapTrash, IMAP_HOSTS, type ImapProvider } from "./providers/imap";
 import type { MailProvider } from "./providers/types";
 
-export const providers: Record<Provider, MailProvider> = { google, microsoft };
+export const providers: Record<OAuthProvider, MailProvider> = { google, microsoft };
+
+const isImap = (p: string): p is ImapProvider => p in IMAP_HOSTS;
 
 export function isConfigured(p: "google" | "microsoft") {
   return p === "google"
@@ -35,10 +38,23 @@ export function saveConnectedAccount(
   return id;
 }
 
+/** Saves an IMAP account; the app password is stored encrypted. */
+export function saveImapAccount(provider: ImapProvider, email: string, password: string): string {
+  const existing = db().prepare("SELECT id FROM accounts WHERE provider = ? AND email = ?").get(provider, email) as { id: string } | undefined;
+  if (existing) {
+    updateAccount(existing.id, { refresh_token: encrypt(password), sync_error: null });
+    return existing.id;
+  }
+  const id = crypto.randomUUID();
+  db().prepare(`INSERT INTO accounts (id, provider, email, refresh_token, created_at) VALUES (?, ?, ?, ?, ?)`)
+    .run(id, provider, email, encrypt(password), Date.now());
+  return id;
+}
+
 /** Valid access token for an account, refreshing it if it expires within a minute. */
 export async function accessToken(id: string): Promise<string> {
   const a = getAccount(id);
-  if (!a) throw new Error("Unknown account");
+  if (!a || isImap(a.provider)) throw new Error("Unknown OAuth account");
   if (a.access_token && a.expires_at && a.expires_at > Date.now() + 60_000) return decrypt(a.access_token);
   if (!a.refresh_token) throw new Error("Session expired — reconnect this account");
   const t = await providers[a.provider].refresh(decrypt(a.refresh_token));
@@ -70,12 +86,10 @@ async function runSync(a: AccountRow) {
   const seen = new Set<string>();
   let lastWrite = 0;
   try {
-    const complete = await providers[a.provider].sync({
-      getToken: () => accessToken(a.id),
-      onTotal: (total) => updateAccount(a.id, { total }),
-      onSeen: (msgId) => seen.add(msgId),
-      isKnown: (msgId) => known.has(msgId),
-      onBatch: (rows) => {
+    const hooks = {
+      onTotal: (total: number) => updateAccount(a.id, { total }),
+      onSeen: (msgId: string) => seen.add(msgId),
+      onBatch: (rows: Parameters<typeof insertMessages>[1]) => {
         if (rows.length) insertMessages(a.id, rows);
         if (Date.now() - lastWrite > 500) {
           updateAccount(a.id, { synced: seen.size });
@@ -83,7 +97,10 @@ async function runSync(a: AccountRow) {
         }
       },
       limit,
-    });
+    };
+    const complete = isImap(a.provider)
+      ? await imapSync(a.provider, a.email, decrypt(a.refresh_token!), hooks)
+      : await providers[a.provider].sync({ ...hooks, getToken: () => accessToken(a.id), isKnown: (msgId) => known.has(msgId) });
     // Drop rows for mail that was deleted elsewhere (only safe after a full walk).
     if (complete) {
       const gone = [...known].filter((msgId) => !seen.has(msgId));
@@ -95,6 +112,15 @@ async function runSync(a: AccountRow) {
     console.error(`[sync ${a.email}]`, e);
     updateAccount(a.id, { sync_status: "error", sync_error: e instanceof Error ? e.message : String(e), synced: seen.size });
   }
+}
+
+/** Trash or archive messages at the provider. */
+export async function moveMessages(a: AccountRow, ids: string[], action: "trash" | "archive") {
+  if (isImap(a.provider)) {
+    const fn = action === "trash" ? imapTrash : imapArchive;
+    return fn(a.provider, a.email, decrypt(a.refresh_token!), ids);
+  }
+  return providers[a.provider][action](await accessToken(a.id), ids);
 }
 
 export function removeAccount(id: string) {

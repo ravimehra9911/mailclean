@@ -10,10 +10,10 @@ export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data"
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS accounts (
   id            TEXT PRIMARY KEY,
-  provider      TEXT NOT NULL,            -- 'google' | 'microsoft'
+  provider      TEXT NOT NULL,            -- 'google' | 'microsoft' | 'yahoo'
   email         TEXT NOT NULL,
   access_token  TEXT,                     -- encrypted
-  refresh_token TEXT,                     -- encrypted
+  refresh_token TEXT,                     -- encrypted (IMAP accounts: the app password)
   expires_at    INTEGER,
   sync_status   TEXT NOT NULL DEFAULT 'idle',  -- idle | syncing | done | error
   sync_error    TEXT,
@@ -64,7 +64,8 @@ export function db(): DatabaseSyncType {
   return g.__mailcleanDb;
 }
 
-export type Provider = "google" | "microsoft";
+export type OAuthProvider = "google" | "microsoft";
+export type Provider = OAuthProvider | "yahoo";
 
 export interface AccountRow {
   id: string;

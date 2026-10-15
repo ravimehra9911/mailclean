@@ -82,7 +82,7 @@ export default function Dashboard() {
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">
         {accounts.length === 0 ? (
-          <Welcome configured={configured} />
+          <Welcome configured={configured} onConnected={changed} toast={toast} />
         ) : (
           <>
             <header className="mb-6 flex flex-wrap items-center gap-3">
@@ -180,14 +180,21 @@ function SyncBanner({ accounts }: { accounts: Account[] }) {
   );
 }
 
-const PROVIDER_LABEL = { google: "Gmail", microsoft: "Outlook" } as const;
+const PROVIDER_LABEL = { google: "Gmail", microsoft: "Outlook", yahoo: "Yahoo" } as const;
 
 // Outlook support is built (src/lib/providers/microsoft.ts) but hidden for now; set to true to bring it back.
 const SHOW_OUTLOOK = false;
 
-function ConnectButtons({ configured }: { configured: { google: boolean; microsoft: boolean } }) {
+type ConnectProps = {
+  configured: { google: boolean; microsoft: boolean };
+  onConnected: () => void;
+  toast: (m: string, k?: "ok" | "err") => void;
+};
+
+function ConnectButtons({ configured, onConnected, toast }: ConnectProps) {
+  const [yahooOpen, setYahooOpen] = useState(false);
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
       <a href="/api/connect/google" className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-medium text-bg hover:opacity-90">
         <span className="font-bold text-[#ea4335]">G</span> Connect Gmail
       </a>
@@ -196,22 +203,71 @@ function ConnectButtons({ configured }: { configured: { google: boolean; microso
           <span className="font-bold text-[#0078d4]">◼</span> Connect Outlook / Hotmail
         </a>
       )}
+      <button onClick={() => setYahooOpen((o) => !o)}
+        className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-card px-4 text-sm font-medium hover:bg-muted">
+        <span className="font-bold text-[#6001d2]">Y!</span> Connect Yahoo Mail
+      </button>
       {!configured.google && (
         <p className="w-full text-xs text-subtle">Gmail sign-in needs API keys in <code>.env.local</code> — see README.</p>
       )}
+      {yahooOpen && <YahooForm onDone={() => { setYahooOpen(false); onConnected(); }} toast={toast} />}
     </div>
   );
 }
 
-function Welcome({ configured }: { configured: { google: boolean; microsoft: boolean } }) {
+function YahooForm({ onDone, toast }: { onDone: () => void; toast: ConnectProps["toast"] }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api<{ email: string }>("/api/connect/imap", { method: "POST", json: { provider: "yahoo", email, password } });
+      setPassword("");
+      toast(`Connected ${r.email} — scanning your mailbox…`);
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-2 w-full space-y-3 rounded-xl border border-line bg-muted/50 p-4 text-left text-sm">
+      <div className="font-medium">Connect Yahoo Mail with an app password</div>
+      <ol className="list-decimal space-y-1 pl-5 text-subtle">
+        <li>Open <a href="https://login.yahoo.com/account/security" target="_blank" rel="noopener noreferrer" className="text-accent underline">Yahoo Account Security</a>.</li>
+        <li>Click <b>Generate app password</b> (or <b>Manage app passwords</b>), name it “MailClean”, and copy the 16-letter password.</li>
+        <li>Paste it below. Your normal Yahoo password won’t work here.</li>
+      </ol>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <input type="email" required autoComplete="off" placeholder="you@yahoo.com" value={email} onChange={(e) => setEmail(e.target.value)}
+          className="h-10 rounded-lg border border-line bg-card px-3 outline-none focus:border-accent" />
+        <input type="password" required autoComplete="new-password" placeholder="App password" value={password} onChange={(e) => setPassword(e.target.value)}
+          className="h-10 rounded-lg border border-line bg-card px-3 outline-none focus:border-accent" />
+      </div>
+      {error && <div className="text-danger">{error}</div>}
+      <button disabled={busy} className="h-10 rounded-lg bg-accent px-4 font-medium text-white disabled:opacity-60">
+        {busy ? "Checking…" : "Connect"}
+      </button>
+    </form>
+  );
+}
+
+function Welcome(props: ConnectProps) {
   return (
     <div className="mx-auto max-w-xl py-16 text-center">
-      <h1 className="text-3xl font-semibold">All your Gmail inboxes. One clean-up.</h1>
+      <h1 className="text-3xl font-semibold">All your inboxes. One clean-up.</h1>
       <p className="mt-3 text-subtle">
-        Connect your Gmail accounts, see which senders fill them, unsubscribe from newsletters and trash
+        Connect your Gmail and Yahoo accounts, see which senders fill them, unsubscribe from newsletters and trash
         thousands of emails in a click. Only email metadata is read — never subjects or content.
       </p>
-      <div className="mt-8 flex justify-center"><ConnectButtons configured={configured} /></div>
+      <div className="mt-8"><ConnectButtons {...props} /></div>
     </div>
   );
 }
@@ -233,7 +289,7 @@ function Accounts({ accounts, configured, reload, toast }: {
     <div className="space-y-6">
       <section className="rounded-xl border border-line bg-card p-5">
         <h2 className="mb-3 font-semibold">Add an account</h2>
-        <ConnectButtons configured={configured} />
+        <ConnectButtons configured={configured} onConnected={reload} toast={toast} />
       </section>
       <div className="overflow-hidden rounded-xl border border-line bg-card">
         {accounts.map((a) => (
