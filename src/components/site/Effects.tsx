@@ -186,6 +186,9 @@ export function useDetectedOs(): { os: Platform | null; macArch: "arm" | "x86" |
 
 export interface DownloadItem {
   os: string; detail: string; href: string; key: Platform; arch?: "arm" | "x86"; icon: React.ReactNode;
+  /** Installer id used for analytics and the download count, e.g. "mac-arm64". */
+  id: string;
+  downloads: number;
 }
 
 export function Downloads({ items }: { items: DownloadItem[] }) {
@@ -196,7 +199,7 @@ export function Downloads({ items }: { items: DownloadItem[] }) {
         // Highlight the card for this computer; for Macs only the matching chip when the browser tells us.
         const match = os === d.key && (!macArch || !d.arch || d.arch === macArch);
         return (
-          <a key={d.href} href={d.href}
+          <a key={d.href} href={d.href} data-track="download" data-track-label={d.id}
             className={`spot group relative overflow-hidden rounded-2xl border bg-card p-6 transition hover:-translate-y-1 hover:shadow-xl ${
               match ? "border-accent shadow-lg shadow-accent/15" : "border-line hover:border-accent"}`}>
             {match && (
@@ -205,8 +208,13 @@ export function Downloads({ items }: { items: DownloadItem[] }) {
             <span className="relative block">{d.icon}</span>
             <div className="relative mt-4 font-semibold">{d.os}</div>
             <div className="relative text-sm text-subtle">{d.detail}</div>
-            <div className="relative mt-4 text-sm font-medium text-accent">
-              Download <span className="inline-block transition group-hover:translate-y-0.5">↓</span>
+            <div className="relative mt-4 flex items-baseline justify-between gap-2 text-sm">
+              <span className="font-medium text-accent">
+                Download <span className="inline-block transition group-hover:translate-y-0.5">↓</span>
+              </span>
+              {d.downloads > 0 && (
+                <span className="text-xs text-subtle tabular-nums">{d.downloads.toLocaleString("en-IN")} download{d.downloads === 1 ? "" : "s"}</span>
+              )}
             </div>
           </a>
         );

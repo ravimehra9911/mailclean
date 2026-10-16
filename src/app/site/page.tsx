@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Analytics, AnalyticsSettings } from "@/components/site/Analytics";
+import { getDownloadCounts, type InstallerKey } from "@/lib/downloads";
 import { CleanupDemo, CountUp, Downloads, Reveal, ScrollProgress, SpotlightGrid, Tilt } from "@/components/site/Effects";
 
 // Landing page for the hosted website (served at "/" on Vercel; see src/middleware.ts).
@@ -29,11 +31,14 @@ export const metadata: Metadata = {
 };
 
 const DOWNLOADS = [
-  { os: "macOS", detail: "Apple Silicon (M1–M4)", file: "MailClean-mac-arm64.dmg", key: "mac", arch: "arm", Icon: AppleIcon },
-  { os: "macOS", detail: "Intel", file: "MailClean-mac-x64.dmg", key: "mac", arch: "x86", Icon: AppleIcon },
-  { os: "Windows", detail: "Windows 10/11, 64-bit", file: "MailClean-windows-x64.exe", key: "windows", Icon: WindowsIcon },
-  { os: "Linux", detail: "AppImage, x86-64", file: "MailClean-linux-x86_64.AppImage", key: "linux", Icon: LinuxIcon },
+  { os: "macOS", detail: "Apple Silicon (M1–M4)", file: "MailClean-mac-arm64.dmg", id: "mac-arm64", key: "mac", arch: "arm", Icon: AppleIcon },
+  { os: "macOS", detail: "Intel", file: "MailClean-mac-x64.dmg", id: "mac-x64", key: "mac", arch: "x86", Icon: AppleIcon },
+  { os: "Windows", detail: "Windows 10/11, 64-bit", file: "MailClean-windows-x64.exe", id: "windows", key: "windows", Icon: WindowsIcon },
+  { os: "Linux", detail: "AppImage, x86-64", file: "MailClean-linux-x86_64.AppImage", id: "linux", key: "linux", Icon: LinuxIcon },
 ] as const;
+
+// Rebuild the page hourly so the download counts stay current.
+export const revalidate = 3600;
 
 const STATS = [
   { value: 6, suffix: "", label: "mail providers" },
@@ -74,6 +79,10 @@ const FAQ = [
     a: "An app password lets the app on your own computer talk directly to your mail server, with no third-party service in between. You can revoke it any time in your Google, Yahoo or Apple account settings.",
   },
   {
+    q: "Does this website track me?",
+    a: "Only if you accept cookies: the website then uses Google Analytics to count visits and download clicks. The MailClean app itself has no analytics or tracking of any kind.",
+  },
+  {
     q: "Can I undo a clean-up?",
     a: "Yes. Trash moves emails to your provider's Trash folder, where they stay for about 30 days. Archive just removes them from the inbox.",
   },
@@ -87,10 +96,12 @@ const FAQ = [
   },
 ];
 
-export default function SitePage() {
+export default async function SitePage() {
+  const counts = await getDownloadCounts();
   return (
     <div className="min-h-screen overflow-x-clip">
       <ScrollProgress />
+      <Analytics />
       <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
           <a href="#" className="flex items-center gap-2 font-semibold">
@@ -101,7 +112,7 @@ export default function SitePage() {
             <a href="#screenshots" className="hover:text-ink">Screenshots</a>
             <a href="#privacy" className="hover:text-ink">Privacy</a>
             <a href="#download" className="hover:text-ink">Download</a>
-            <a href={REPO} className="hover:text-ink">GitHub</a>
+            <a href={REPO} data-track="github" className="hover:text-ink">GitHub</a>
           </div>
           <div className="ml-auto md:ml-0"><ThemeToggle /></div>
         </nav>
@@ -115,7 +126,7 @@ export default function SitePage() {
             <div className="hero-glow top-40 right-[8%] size-80 bg-[#c084fc]" style={{ animationDelay: "-6s" }} />
             <div className="hero-glow top-[28rem] left-[35%] size-96 bg-[#60a5fa]" style={{ animationDelay: "-12s" }} />
           </div>
-          <a href={REPO} className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-subtle hover:text-ink">
+          <a href={REPO} data-track="github" className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-subtle hover:text-ink">
             <GitHubIcon className="size-3.5" /> Free &amp; open source · MIT license
           </a>
           <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">
@@ -126,14 +137,17 @@ export default function SitePage() {
             thousands of emails in a click. Everything runs on your computer — your email never leaves it.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <a href="#download" className="inline-flex h-12 items-center rounded-xl bg-accent px-6 font-medium text-white shadow-lg shadow-accent/25 hover:opacity-90">
+            <a href="#download" data-track="cta_download" className="inline-flex h-12 items-center rounded-xl bg-accent px-6 font-medium text-white shadow-lg shadow-accent/25 hover:opacity-90">
               Download free
             </a>
-            <a href="/demo" className="inline-flex h-12 items-center rounded-xl border border-line bg-card px-6 font-medium hover:bg-muted">
+            <a href="/demo" data-track="open_demo" className="inline-flex h-12 items-center rounded-xl border border-line bg-card px-6 font-medium hover:bg-muted">
               Try the live demo →
             </a>
           </div>
-          <p className="mt-3 text-xs text-subtle">macOS · Windows · Linux{VERSION && ` · v${VERSION}`}</p>
+          <p className="mt-3 text-xs text-subtle">
+            macOS · Windows · Linux{VERSION && ` · v${VERSION}`}
+            {counts.total > 0 && ` · ${counts.total.toLocaleString("en-IN")} downloads`}
+          </p>
           <Tilt className="mx-auto mt-12 max-w-5xl">
             <div className="float overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-accent/20">
               <img src="/screenshots/overview-dark.png" alt="MailClean overview showing totals per account and the top senders"
@@ -265,13 +279,13 @@ export default function SitePage() {
           <Reveal className="mt-10">
             <Downloads items={DOWNLOADS.map((d) => ({
               os: d.os, detail: d.detail, key: d.key, arch: "arch" in d ? d.arch : undefined, href: dl(d.file),
-              icon: <d.Icon className="size-8 text-ink" />,
+              id: d.id, downloads: counts.byInstaller[d.id as InstallerKey], icon: <d.Icon className="size-8 text-ink" />,
             }))} />
           </Reveal>
           <div className="mt-4 rounded-2xl border border-line bg-card p-6 text-center">
             <div className="font-semibold">Just want to look first?</div>
             <p className="mt-1 text-sm text-subtle">The web demo runs in your browser with sample data — no download, no sign-in.</p>
-            <a href="/demo" className="mt-4 inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-medium hover:bg-muted">Open the web demo →</a>
+            <a href="/demo" data-track="open_demo" className="mt-4 inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-medium hover:bg-muted">Open the web demo →</a>
           </div>
           <p className="mt-6 text-center text-xs text-subtle">
             First launch: macOS — right-click MailClean → Open. Windows — More info → Run anyway. Linux — make the AppImage executable.
@@ -288,10 +302,10 @@ export default function SitePage() {
               MailClean is MIT-licensed. Read the code, report issues, suggest features or contribute on GitHub.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
-              <a href={REPO} className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-medium text-bg hover:opacity-90">
+              <a href={REPO} data-track="github" className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-medium text-bg hover:opacity-90">
                 <GitHubIcon className="size-4" /> Star on GitHub
               </a>
-              <a href={`${REPO}/issues`} className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-medium hover:bg-muted">Report an issue</a>
+              <a href={`${REPO}/issues`} data-track="report_issue" className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-medium hover:bg-muted">Report an issue</a>
             </div>
           </div>
         </section>
@@ -318,6 +332,7 @@ export default function SitePage() {
             <span className="grid size-6 place-items-center rounded-md bg-accent text-xs text-white">✦</span> MailClean
           </span>
           <span>MIT License</span>
+          <AnalyticsSettings />
           <a href={GITHUB_USER} className="ml-auto flex items-center gap-2 hover:text-ink">
             <GitHubIcon className="size-4" /> Built by <b className="font-medium text-ink">@ravimehra9911</b>
           </a>

@@ -96,8 +96,15 @@ MAILCLEAN_DEMO=1 npm run dev                         # website + demo locally
 npm run desktop:prepare && npm run screenshots       # regenerate public/screenshots from the demo
 ```
 
-Deploy: import the GitHub repo in Vercel (framework: Next.js, no environment variables needed) or run
-`npx vercel --prod`. Vercel sets `VERCEL=1`, which switches on demo mode.
+Deploy: import the GitHub repo in Vercel (framework: Next.js) or run `npx vercel --prod`. Vercel sets
+`VERCEL=1`, which switches on demo mode.
+
+**Analytics (optional):** set `NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX` in the Vercel project's environment variables
+and redeploy. Google Analytics then loads on the website and demo after a visitor accepts the cookie
+banner, and records `download` (label: `mac-arm64`, `mac-x64`, `windows`, `linux`), `open_demo`,
+`github`, `cta_download` and `report_issue` events. The desktop app never loads analytics.
+
+**Download counts** on the download cards come from the GitHub releases API (all releases, refreshed hourly).
 
 ## Security model
 
