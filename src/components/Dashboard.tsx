@@ -47,6 +47,13 @@ export default function Dashboard() {
     }
   }, [accounts?.length, accountId, refreshKey, toast]);
 
+  // Refresh when the window regains focus, e.g. after finishing sign-in in the system browser.
+  useEffect(() => {
+    const onFocus = () => { loadAccounts(); refresh(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loadAccounts, refresh]);
+
   // While any account is syncing, poll progress and refresh numbers.
   const syncing = accounts?.some((a) => a.sync_status === "syncing");
   useEffect(() => {

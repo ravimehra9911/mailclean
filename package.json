@@ -5,7 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "desktop:dev": "MAILCLEAN_DEV_URL=http://localhost:3000 electron electron",
+    "desktop:prepare": "next build && node scripts/prepare-desktop.mjs",
+    "desktop:mac": "npm run desktop:prepare && electron-builder --mac",
+    "desktop:win": "npm run desktop:prepare && electron-builder --win",
+    "desktop:build": "npm run desktop:prepare && electron-builder --mac --win",
+    "desktop:icon": "electron scripts/make-icon.cjs"
   },
   "dependencies": {
     "imapflow": "^1.0.191",
@@ -18,7 +24,64 @@
     "@types/node": "^24.3.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.7",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "build": {
+    "appId": "app.mailclean.desktop",
+    "productName": "MailClean",
+    "electronVersion": "44.5.1",
+    "directories": {
+      "app": "electron",
+      "buildResources": "build",
+      "output": "dist-desktop"
+    },
+    "files": [
+      "main.cjs",
+      "package.json",
+      "!**/node_modules/**"
+    ],
+    "extraResources": [
+      {
+        "from": "build/config.json",
+        "to": "config.json"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "MailClean ${version}"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "MailClean"
+    },
+    "afterPack": "scripts/after-pack.cjs",
+    "npmRebuild": false
   }
 }

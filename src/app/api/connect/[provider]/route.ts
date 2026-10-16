@@ -12,5 +12,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pro
   const state = crypto.randomBytes(24).toString("base64url");
   const res = NextResponse.redirect(providers[provider].authUrl(state));
   res.cookies.set(`oauth_state_${provider}`, state, { httpOnly: true, sameSite: "lax", maxAge: 600, path: "/" });
+  // The desktop app opens sign-in in the system browser (Google blocks embedded sign-in windows);
+  // remember that so the callback can tell the user to return to the app.
+  if (_req.nextUrl.searchParams.get("from") === "desktop") {
+    res.cookies.set("oauth_return", "desktop", { httpOnly: true, sameSite: "lax", maxAge: 600, path: "/" });
+  }
   return res;
 }

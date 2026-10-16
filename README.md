@@ -16,6 +16,28 @@ cp .env.example .env.local   # then fill in the keys below
 npm run dev                  # http://localhost:3000
 ```
 
+## Desktop app (macOS and Windows)
+
+MailClean also ships as an Electron app that bundles its own server (port **47321**, this computer only)
+and keeps its data in the app's folder: `~/Library/Application Support/MailClean` on macOS,
+`%APPDATA%\MailClean` on Windows.
+
+```bash
+npm run desktop:mac     # dist-desktop/MailClean-<version>-arm64.dmg (Apple Silicon) and MailClean-<version>.dmg (Intel)
+npm run desktop:win     # dist-desktop/MailClean Setup <version>.exe
+npm run desktop:dev     # Electron window around `npm run dev` (start that first)
+```
+
+- The Google keys from `.env.local` are written to `build/config.json` (gitignored) and bundled in the app.
+  A user can override them in `<app data folder>/config.json`.
+- Add this **Authorized redirect URI** to the Google OAuth client:
+  `http://localhost:47321/api/connect/google/callback`
+- Google blocks sign-in inside app windows, so "Connect Gmail" opens the system browser. After signing in,
+  return to the app; it refreshes on focus.
+- The builds are **not code-signed**. macOS: right-click the app → **Open** the first time.
+  Windows: SmartScreen → **More info → Run anyway**. Sign them before giving the app to other people.
+- Server logs: `<app data folder>/logs/server.log`.
+
 ## Connect Gmail (Google Cloud)
 
 1. Go to <https://console.cloud.google.com> → create a project.
