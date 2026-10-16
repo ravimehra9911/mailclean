@@ -14,7 +14,8 @@
     "desktop:icon": "electron scripts/make-icon.cjs",
     "desktop:linux": "npm run desktop:prepare && electron-builder --linux",
     "desktop:all": "npm run desktop:prepare && electron-builder --mac --win --linux",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "marketing": "npm run desktop:prepare && electron scripts/marketing/carousel.cjs && node scripts/marketing/record.mjs"
   },
   "dependencies": {
     "imapflow": "1.7.8",

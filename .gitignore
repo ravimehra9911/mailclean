@@ -52,3 +52,6 @@ client_secret_*.json
 /dist-desktop/
 /build/config.json
 !.env.example
+
+# generated marketing assets (npm run marketing)
+/marketing/
