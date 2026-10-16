@@ -84,9 +84,38 @@ export function seedDemo() {
   d.prepare("INSERT OR REPLACE INTO kv (k, v) VALUES ('demo_seeded_at', ?)").run(String(now));
 }
 
-/** In demo mode, (re)seed when empty or older than 30 minutes, so visitors' clean-ups don't pile up. */
+/** In demo mode, seed the sample data once per server instance. The data itself is never modified. */
 export function ensureDemo() {
   if (!isDemo()) return;
   const row = db().prepare("SELECT v FROM kv WHERE k = 'demo_seeded_at'").get() as { v: string } | undefined;
-  if (!row || Date.now() - Number(row.v) > 30 * 60_000) seedDemo();
+  if (!row) seedDemo();
+}
+
+// Each visitor's demo changes live in their own cookie, not in the shared sample data: serverless
+// functions don't share storage, and visitors shouldn't see each other's clean-ups.
+export const DEMO_COOKIE = "mailclean_demo";
+
+export interface DemoState {
+  /** Senders this visitor moved to Trash. */
+  trashed: string[];
+  /** Senders this visitor unsubscribed from. */
+  unsubscribed: string[];
+}
+
+export function readDemoState(raw: string | undefined): DemoState {
+  try {
+    const v = JSON.parse(Buffer.from(raw ?? "", "base64url").toString("utf8"));
+    const list = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === "string").slice(0, 200) : []);
+    return { trashed: list(v.trashed), unsubscribed: list(v.unsubscribed) };
+  } catch {
+    return { trashed: [], unsubscribed: [] };
+  }
+}
+
+export function demoCookie(state: DemoState) {
+  return {
+    name: DEMO_COOKIE,
+    value: Buffer.from(JSON.stringify(state)).toString("base64url"),
+    options: { httpOnly: true, sameSite: "lax" as const, path: "/", maxAge: 60 * 60 * 24 },
+  };
 }

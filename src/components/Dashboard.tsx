@@ -104,7 +104,7 @@ export default function Dashboard() {
       <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 md:px-8">
         {about.demo && (
           <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 px-5 py-3 text-sm">
-            <span><b>Live demo</b> with sample data — try the filters, sorting and clean-up. Changes reset every 30 minutes.</span>
+            <span><b>Live demo</b> with sample data — try the filters, sorting and clean-up. Your changes stay in this browser only.</span>
             <a href="/#download" className="ml-auto rounded-lg bg-accent px-3 py-1.5 font-medium text-white hover:opacity-90">Download MailClean</a>
           </div>
         )}

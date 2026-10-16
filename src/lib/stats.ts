@@ -43,6 +43,8 @@ export interface Scope {
   accountId?: string;
   from?: number;
   to?: number;
+  /** Senders to leave out (the web demo's per-visitor "trashed" list). */
+  exclude?: string[];
 }
 
 /** SQL conditions on `messages m` for a scope, with their parameters. */
@@ -52,6 +54,7 @@ export function scopeSql(s: Scope, alias = "m"): { conds: string[]; args: (strin
   if (s.accountId) { conds.push(`${alias}.account_id = ?`); args.push(s.accountId); }
   if (s.from !== undefined) { conds.push(`${alias}.date >= ?`); args.push(s.from); }
   if (s.to !== undefined) { conds.push(`${alias}.date < ?`); args.push(s.to); }
+  if (s.exclude?.length) { conds.push(`${alias}.from_email NOT IN (${s.exclude.map(() => "?").join(",")})`); args.push(...s.exclude); }
   return { conds, args };
 }
 
@@ -80,7 +83,7 @@ export function overview(scope: Scope): Overview {
     ${whereOf(chart.conds)} GROUP BY day ORDER BY day`).all(...chart.args) as { day: string; count: number }[];
 
   // Per-account totals: date conditions go in the JOIN so accounts with no mail in range still show.
-  const dates = scopeSql({ from: scope.from, to: scope.to });
+  const dates = scopeSql({ from: scope.from, to: scope.to, exclude: scope.exclude });
   const byAccount = d.prepare(`SELECT acc.id account_id, acc.provider, acc.email, COUNT(m.msg_id) count,
     COALESCE(SUM(m.size),0) bytes, COALESCE(SUM(m.unread),0) unread
     FROM accounts acc LEFT JOIN messages m ON m.account_id = acc.id ${dates.conds.map((c) => `AND ${c}`).join(" ")}
