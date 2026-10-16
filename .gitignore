@@ -51,3 +51,4 @@ client_secret_*.json
 # desktop app build output and generated config (contains OAuth keys)
 /dist-desktop/
 /build/config.json
+!.env.example

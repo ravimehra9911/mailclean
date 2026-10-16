@@ -206,7 +206,7 @@ export function SendersTable(props: {
   );
 }
 
-/** Shows which connected inbox an email count belongs to, e.g. "G ravimehra9911@gmail.com · 120". */
+/** Shows which connected inbox an email count belongs to, e.g. "G you@gmail.com · 120". */
 export function AccountChip({ share, showCount = true }: { share: Pick<AccountShare, "provider" | "email"> & { count?: number }; showCount?: boolean }) {
   const p = providerInfo(share.provider);
   return (
