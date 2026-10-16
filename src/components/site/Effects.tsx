@@ -4,6 +4,7 @@
 // prefers reduced motion (see globals.css).
 
 import { useEffect, useRef, useState } from "react";
+import { confetti, ThankYou } from "./Celebrate";
 
 /** Fades and slides its children in when they scroll into view. */
 export function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
@@ -193,13 +194,25 @@ export interface DownloadItem {
 
 export function Downloads({ items }: { items: DownloadItem[] }) {
   const { os, macArch } = useDetectedOs();
+  const [thanks, setThanks] = useState<string | null>(null);
+
+  // The link itself starts the download (GitHub serves it as a file, so the page stays);
+  // celebrate and say thanks on top.
+  function celebrate(e: React.MouseEvent<HTMLAnchorElement>, id: string) {
+    const r = e.currentTarget.getBoundingClientRect();
+    confetti(r.left + r.width / 2, r.top + r.height / 2);
+    setThanks(id);
+  }
+
   return (
+    <>
+    {thanks && <ThankYou installer={thanks} onClose={() => setThanks(null)} />}
     <SpotlightGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((d) => {
         // Highlight the card for this computer; for Macs only the matching chip when the browser tells us.
         const match = os === d.key && (!macArch || !d.arch || d.arch === macArch);
         return (
-          <a key={d.href} href={d.href} data-track="download" data-track-label={d.id}
+          <a key={d.href} href={d.href} data-track="download" data-track-label={d.id} onClick={(e) => celebrate(e, d.id)}
             className={`spot group relative overflow-hidden rounded-2xl border bg-card p-6 transition hover:-translate-y-1 hover:shadow-xl ${
               match ? "border-accent shadow-lg shadow-accent/15" : "border-line hover:border-accent"}`}>
             {match && (
@@ -220,5 +233,6 @@ export function Downloads({ items }: { items: DownloadItem[] }) {
         );
       })}
     </SpotlightGrid>
+    </>
   );
 }
