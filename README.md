@@ -1,106 +1,101 @@
 # MailClean
 
-Connect Gmail and Yahoo accounts, see which senders fill every inbox, unsubscribe from newsletters and
-trash or archive thousands of emails per sender in one click.
+A desktop app (macOS and Windows) that connects Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox,
+shows which senders fill every inbox, unsubscribes from newsletters and trashes or archives thousands of
+emails per sender in one click.
 
-**Privacy:** only metadata is stored (sender, date, size, read/inbox status, unsubscribe link).
-Subjects and bodies are never fetched. OAuth tokens are encrypted (AES-256-GCM) in a local SQLite database.
+**Privacy:** everything runs and stays on the user's device; there is no MailClean server or account.
+Only metadata is stored (sender, date, size, read/inbox status, unsubscribe link); subjects and bodies are
+never fetched. Passwords and tokens are encrypted (AES-256-GCM) in a local SQLite database.
 
-## Run it
+## How users connect accounts
+
+Every provider connects with an **app password over IMAP** (TLS only). No developer keys, Google
+verification or security audit are needed, and there are no API rate limits.
+
+| Provider | IMAP server | Where to create an app password |
+|---|---|---|
+| Gmail / Google Workspace | `imap.gmail.com` | <https://myaccount.google.com/apppasswords> (needs 2-Step Verification) |
+| Yahoo Mail | `imap.mail.yahoo.com` | <https://login.yahoo.com/account/security> |
+| iCloud Mail | `imap.mail.me.com` | <https://account.apple.com> → Sign-In and Security → App-Specific Passwords |
+| AOL Mail | `imap.aol.com` | <https://login.aol.com/account/security> |
+| Zoho Mail | `imap.zoho.com` (`.in`, `.eu` by region) | Zoho Accounts → Security → App Passwords |
+| Anything else | user enters server, port, username | provider's help pages |
+
+The in-app **Add account** screen shows these steps per provider. Provider details live in
+`src/lib/catalog.ts`; adding a provider is one entry there.
+
+Provider notes:
+
+- **Gmail**: MailClean scans the single *All Mail* folder and reads Gmail labels, so labelled mail is not
+  counted twice. Archive removes the Inbox label; Trash moves to `[Gmail]/Trash`.
+- **Yahoo and AOL** only let apps see the newest **10,000 emails per folder**. The app says so and rescans
+  after every clean-up, which brings older mail into view.
+- **Outlook / Hotmail** no longer allows app passwords for IMAP. Support via Microsoft Graph is built
+  (`src/lib/providers/microsoft.ts`) but hidden until a Microsoft app registration is set up
+  (`SHOW_OUTLOOK` in `src/components/AddAccount.tsx`).
+
+## Develop
 
 Requires Node 22.13+ (uses the built-in `node:sqlite`).
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in the keys below
-npm run dev                  # http://localhost:3000
+npm run dev            # http://localhost:3000 — data in ./.data
+npm run desktop:dev    # Electron window around the dev server (start `npm run dev` first)
 ```
 
-## Desktop app (macOS and Windows)
-
-MailClean also ships as an Electron app that bundles its own server (port **47321**, this computer only)
-and keeps its data in the app's folder: `~/Library/Application Support/MailClean` on macOS,
-`%APPDATA%\MailClean` on Windows.
+## Build the desktop app
 
 ```bash
-npm run desktop:mac     # dist-desktop/MailClean-<version>-arm64.dmg (Apple Silicon) and MailClean-<version>.dmg (Intel)
-npm run desktop:win     # dist-desktop/MailClean Setup <version>.exe
-npm run desktop:dev     # Electron window around `npm run dev` (start that first)
+npm run desktop:mac    # dist-desktop/MailClean-<version>-arm64.dmg (Apple Silicon) and MailClean-<version>.dmg (Intel)
+npm run desktop:win    # dist-desktop/MailClean Setup <version>.exe (x64)
 ```
 
-- The Google keys from `.env.local` are written to `build/config.json` (gitignored) and bundled in the app.
-  A user can override them in `<app data folder>/config.json`.
-- Add this **Authorized redirect URI** to the Google OAuth client:
-  `http://localhost:47321/api/connect/google/callback`
-- Google blocks sign-in inside app windows, so "Connect Gmail" opens the system browser. After signing in,
-  return to the app; it refreshes on focus.
-- The builds are **not code-signed**. macOS: right-click the app → **Open** the first time.
-  Windows: SmartScreen → **More info → Run anyway**. Sign them before giving the app to other people.
-- Server logs: `<app data folder>/logs/server.log`.
+The version comes from `electron/package.json`. App data lives in `~/Library/Application Support/MailClean`
+(macOS) or `%APPDATA%\MailClean` (Windows); server logs are in its `logs/` folder.
 
-## Connect Gmail (Google Cloud)
+### Before publishing
 
-1. Go to <https://console.cloud.google.com> → create a project.
-2. **APIs & Services → Library** → enable **Gmail API**.
-3. **OAuth consent screen** → User type *External* → fill app name and your email.
-   - Scopes: add `.../auth/gmail.modify`.
-   - **Test users:** add every Gmail address you want to connect (up to 100).
-4. **Credentials → Create credentials → OAuth client ID** → *Web application*.
-   - Authorized redirect URI: `http://localhost:3000/api/connect/google/callback`
-5. Put the client ID and secret into `.env.local` and restart `npm run dev`.
+- **Code signing.** The builds are unsigned, so macOS Gatekeeper and Windows SmartScreen warn users.
+  - macOS: an Apple Developer ID certificate plus notarization. Set `CSC_LINK`/`CSC_KEY_PASSWORD` and
+    `APPLE_ID`/`APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID`, then build; electron-builder signs and notarizes.
+  - Windows: an OV/EV code-signing certificate (`WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD`) or Azure Trusted Signing.
+- **App ID and name** are in the `build` section of `package.json` (`appId: app.mailclean.desktop`).
+- Bump `version` in `electron/package.json` for each release.
 
-While the app is in **Testing** mode Google shows an "unverified app" warning (click *Continue*) and
-refresh tokens expire after **7 days**, so you will need to reconnect weekly. Publishing for the public
-requires Google verification plus a CASA security assessment because `gmail.modify` is a restricted scope.
+## Security model
 
-## Connect Yahoo Mail (IMAP + app password)
+- The bundled server listens on **127.0.0.1:47321** only and is never reachable from the network.
+- Each launch generates a random token; the app window adds it to every request and the server
+  (`src/middleware.ts`) refuses API calls without it. This stops websites in the user's browser from
+  calling the local server (CSRF) and blocks DNS rebinding via a Host check.
+- External links (unsubscribe pages, provider help) open in the system browser; the app window only
+  shows MailClean.
+- Unsubscribe one-click POSTs only go to public HTTPS hosts (SSRF guard in `src/lib/actions.ts`).
+- Nothing is permanently deleted: Trash moves mail to the provider's Trash.
 
-Yahoo has no public mail API for this, so MailClean connects over IMAP (`imap.mail.yahoo.com:993`).
-No developer keys are needed.
+## Optional: Gmail via Google sign-in (OAuth)
 
-1. Go to <https://login.yahoo.com/account/security>.
-2. Click **Generate app password** (or **Manage app passwords**), name it "MailClean", copy the 16-letter password.
-3. In MailClean: **Accounts → Connect Yahoo Mail**, enter your Yahoo address and the app password.
+App passwords are the default. Google sign-in is still supported for personal/internal builds; it requires a
+Google Cloud project with the Gmail API, `gmail.modify` scope, test users, and these redirect URIs:
+`http://localhost:3000/api/connect/google/callback` (dev) and `http://localhost:47321/api/connect/google/callback`
+(desktop). Put the keys in `.env.local` (see `.env.example`). Public desktop builds **do not** include the keys;
+build with `MAILCLEAN_BUNDLE_OAUTH=1 npm run desktop:mac` to bundle them for your own use. Offering Google
+sign-in to the public requires Google's OAuth verification and a CASA security assessment.
 
-The app password is stored encrypted like the OAuth tokens. All folders except Trash, Spam, Sent and Drafts are scanned;
-**Trash** moves mail to Yahoo's Trash folder and **Archive** moves Inbox mail to Archive. To revoke access,
-delete the app password on the same Yahoo page.
-
-## Connect Outlook / Hotmail / Microsoft 365 (Azure)
-
-> Hidden in the UI for now. Set `SHOW_OUTLOOK = true` in `src/components/Dashboard.tsx` to enable it.
-
-1. Go to <https://portal.azure.com> → **App registrations → New registration**.
-   - Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**.
-   - Redirect URI: platform *Web*, `http://localhost:3000/api/connect/microsoft/callback`
-2. **Certificates & secrets → New client secret** → copy the *Value*.
-3. **API permissions → Add → Microsoft Graph → Delegated**: `Mail.ReadWrite`, `User.Read`, `offline_access`, `openid`, `email`.
-4. Put the Application (client) ID and secret into `.env.local` and restart.
-
-## How it works
+## Code map
 
 | Piece | File |
 |---|---|
-| SQLite schema and helpers | `src/lib/db.ts` |
-| Token encryption | `src/lib/crypto.ts` |
-| Gmail API (metadata sync, batch trash/archive) | `src/lib/providers/google.ts` |
-| Microsoft Graph (sync, `$batch` move to Deleted Items/Archive) | `src/lib/providers/microsoft.ts` |
-| IMAP (Yahoo): one FETCH per folder, move to Trash/Archive | `src/lib/providers/imap.ts` |
-| Background sync and token refresh | `src/lib/accounts.ts` |
-| Clean-up and unsubscribe (RFC 8058 one-click, SSRF-guarded) | `src/lib/actions.ts` |
+| Provider catalog (IMAP servers, app-password steps) | `src/lib/catalog.ts` |
+| IMAP sync, trash and archive | `src/lib/providers/imap.ts` |
+| Gmail API / Microsoft Graph (optional OAuth) | `src/lib/providers/google.ts`, `microsoft.ts` |
+| Accounts, background sync, token refresh | `src/lib/accounts.ts` |
+| Clean-up and unsubscribe (RFC 8058 one-click) | `src/lib/actions.ts` |
 | Sender and overview queries | `src/lib/stats.ts` |
+| SQLite schema and migrations | `src/lib/db.ts` |
+| Request lock for the desktop app | `src/middleware.ts` |
 | Dashboard UI | `src/components/` |
-
-- **Trash** moves mail to the provider's Trash / Deleted Items (recoverable for ~30 days). Nothing is permanently deleted.
-- **Unsubscribe** does a one-click POST when the sender supports RFC 8058; otherwise it opens the sender's unsubscribe page.
-- **Rescan** is incremental: only new messages are fetched; mail deleted elsewhere is removed from the stats.
-
-## Before making this public
-
-This MVP is **single-user** (no login): anyone who can reach the server sees all connected accounts.
-Keep it on localhost. To turn it into a SaaS you need:
-
-- user accounts and per-user data isolation
-- Postgres instead of SQLite, and a job queue (e.g. BullMQ) instead of in-process sync
-- Google OAuth verification and a CASA assessment; Microsoft publisher verification
-- privacy policy, terms and data-deletion flow
+| Electron main process | `electron/main.cjs` |
+| Packaging scripts | `scripts/` |

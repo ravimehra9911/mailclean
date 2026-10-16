@@ -1,17 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, fmtBytes, fmtNum, pct, PROVIDER, type Account, type Overview } from "./api";
+import { isImapProvider, providerInfo, type ImapProviderId } from "@/lib/catalog";
+import { AddAccount, ProviderIcon } from "./AddAccount";
+import { api, fmtBytes, fmtNum, pct, type Account, type Overview } from "./api";
 import { AccountChip, SendersTable } from "./SendersTable";
 import { VolumeChart } from "./VolumeChart";
 
-type Tab = "overview" | "senders" | "newsletters" | "accounts";
+type Tab = "overview" | "senders" | "newsletters" | "accounts" | "about";
 type Toast = { msg: string; kind: "ok" | "err" } | null;
 
 export default function Dashboard() {
   const [tab, setTab] = useState<Tab>("overview");
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [configured, setConfigured] = useState({ google: false, microsoft: false });
+  const [about, setAbout] = useState({ version: "", dataDir: "" });
   const [accountId, setAccountId] = useState("");
   const [ov, setOv] = useState<Overview | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -23,9 +26,10 @@ export default function Dashboard() {
   }, []);
 
   const loadAccounts = useCallback(async () => {
-    const r = await api<{ accounts: Account[]; configured: typeof configured }>("/api/accounts");
+    const r = await api<{ accounts: Account[]; configured: typeof configured; about: typeof about }>("/api/accounts");
     setAccounts(r.accounts);
     setConfigured(r.configured);
+    setAbout(r.about);
     return r.accounts;
   }, []);
 
@@ -78,6 +82,7 @@ export default function Dashboard() {
             ["senders", "Senders"],
             ["newsletters", "Newsletters"],
             ["accounts", `Accounts (${accounts.length})`],
+            ["about", "Privacy & about"],
           ] as [Tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm ${tab === t ? "bg-muted font-medium" : "text-subtle hover:bg-muted"}`}>
@@ -88,7 +93,9 @@ export default function Dashboard() {
       </aside>
 
       <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 md:px-8">
-        {accounts.length === 0 ? (
+        {tab === "about" ? (
+          <About {...about} />
+        ) : accounts.length === 0 ? (
           <Welcome configured={configured} onConnected={changed} toast={toast} />
         ) : (
           <>
@@ -98,7 +105,7 @@ export default function Dashboard() {
                 <select value={accountId} onChange={(e) => setAccountId(e.target.value)}
                   className="ml-auto h-9 rounded-lg border border-line bg-card px-2 text-sm">
                   <option value="">All accounts ({accounts.length})</option>
-                  {accounts.map((a) => <option key={a.id} value={a.id}>{PROVIDER[a.provider].label} · {a.email}</option>)}
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{providerInfo(a.provider).label} · {a.email}</option>)}
                 </select>
               )}
             </header>
@@ -124,7 +131,7 @@ export default function Dashboard() {
                           <span className="text-sm text-subtle">emails · {fmtBytes(s.bytes)} · {pct(s.count ? s.unread / s.count : 0)} unread</span>
                         </div>
                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full" style={{ width: pct(ov.emails ? s.count / ov.emails : 0), background: PROVIDER[s.provider].color }} />
+                          <div className="h-full" style={{ width: pct(ov.emails ? s.count / ov.emails : 0), background: providerInfo(s.provider).color }} />
                         </div>
                         <div className="mt-1 text-xs text-subtle">{pct(ov.emails ? s.count / ov.emails : 0)} of all your mail · click to view only this inbox</div>
                       </button>
@@ -210,94 +217,27 @@ function SyncBanner({ accounts }: { accounts: Account[] }) {
   );
 }
 
-const PROVIDER_LABEL = { google: "Gmail", microsoft: "Outlook", yahoo: "Yahoo" } as const;
-
-// Outlook support is built (src/lib/providers/microsoft.ts) but hidden for now; set to true to bring it back.
-const SHOW_OUTLOOK = false;
-
 type ConnectProps = {
   configured: { google: boolean; microsoft: boolean };
   onConnected: () => void;
   toast: (m: string, k?: "ok" | "err") => void;
 };
 
-function ConnectButtons({ configured, onConnected, toast }: ConnectProps) {
-  const [yahooOpen, setYahooOpen] = useState(false);
-  return (
-    <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
-      <a href="/api/connect/google" className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-medium text-bg hover:opacity-90">
-        <span className="font-bold text-[#ea4335]">G</span> Connect Gmail
-      </a>
-      {SHOW_OUTLOOK && (
-        <a href="/api/connect/microsoft" className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-card px-4 text-sm font-medium hover:bg-muted">
-          <span className="font-bold text-[#0078d4]">◼</span> Connect Outlook / Hotmail
-        </a>
-      )}
-      <button onClick={() => setYahooOpen((o) => !o)}
-        className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-card px-4 text-sm font-medium hover:bg-muted">
-        <span className="font-bold text-[#6001d2]">Y!</span> Connect Yahoo Mail
-      </button>
-      {!configured.google && (
-        <p className="w-full text-xs text-subtle">Gmail sign-in needs API keys in <code>.env.local</code> — see README.</p>
-      )}
-      {yahooOpen && <YahooForm onDone={() => { setYahooOpen(false); onConnected(); }} toast={toast} />}
-    </div>
-  );
-}
-
-function YahooForm({ onDone, toast }: { onDone: () => void; toast: ConnectProps["toast"] }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await api<{ email: string }>("/api/connect/imap", { method: "POST", json: { provider: "yahoo", email, password } });
-      setPassword("");
-      toast(`Connected ${r.email} — scanning your mailbox…`);
-      onDone();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="mt-2 w-full space-y-3 rounded-xl border border-line bg-muted/50 p-4 text-left text-sm">
-      <div className="font-medium">Connect Yahoo Mail with an app password</div>
-      <ol className="list-decimal space-y-1 pl-5 text-subtle">
-        <li>Open <a href="https://login.yahoo.com/account/security" target="_blank" rel="noopener noreferrer" className="text-accent underline">Yahoo Account Security</a>.</li>
-        <li>Click <b>Generate app password</b> (or <b>Manage app passwords</b>), name it “MailClean”, and copy the 16-letter password.</li>
-        <li>Paste it below. Your normal Yahoo password won’t work here.</li>
-      </ol>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <input type="email" required autoComplete="off" placeholder="you@yahoo.com" value={email} onChange={(e) => setEmail(e.target.value)}
-          className="h-10 rounded-lg border border-line bg-card px-3 outline-none focus:border-accent" />
-        <input type="password" required autoComplete="new-password" placeholder="App password" value={password} onChange={(e) => setPassword(e.target.value)}
-          className="h-10 rounded-lg border border-line bg-card px-3 outline-none focus:border-accent" />
-      </div>
-      {error && <div className="text-danger">{error}</div>}
-      <button disabled={busy} className="h-10 rounded-lg bg-accent px-4 font-medium text-white disabled:opacity-60">
-        {busy ? "Checking…" : "Connect"}
-      </button>
-    </form>
-  );
-}
-
 function Welcome(props: ConnectProps) {
   return (
-    <div className="mx-auto max-w-xl py-16 text-center">
-      <h1 className="text-3xl font-semibold">All your inboxes. One clean-up.</h1>
-      <p className="mt-3 text-subtle">
-        Connect your Gmail and Yahoo accounts, see which senders fill them, unsubscribe from newsletters and trash
-        thousands of emails in a click. Only email metadata is read — never subjects or content.
-      </p>
-      <div className="mt-8"><ConnectButtons {...props} /></div>
+    <div className="mx-auto max-w-3xl py-12">
+      <div className="text-center">
+        <h1 className="text-3xl font-semibold">All your inboxes. One clean-up.</h1>
+        <p className="mx-auto mt-3 max-w-xl text-subtle">
+          See which senders fill your Gmail, Yahoo, iCloud and other inboxes, unsubscribe from newsletters and trash
+          thousands of emails in a click. Only sender, date and size are read — never subjects or message content —
+          and everything stays on this device.
+        </p>
+      </div>
+      <div className="mt-8 rounded-xl border border-line bg-card p-5">
+        <h2 className="mb-3 font-semibold">Choose your email provider</h2>
+        <AddAccount {...props} />
+      </div>
     </div>
   );
 }
@@ -305,6 +245,7 @@ function Welcome(props: ConnectProps) {
 function Accounts({ accounts, configured, reload, toast }: {
   accounts: Account[]; configured: { google: boolean; microsoft: boolean }; reload: () => void; toast: (m: string, k?: "ok" | "err") => void;
 }) {
+  const [preset, setPreset] = useState<{ provider: ImapProviderId; email: string } | null>(null);
   async function disconnect(a: Account) {
     if (!confirm(`Disconnect ${a.email}? Its scanned data is deleted from MailClean. Your mailbox is not changed.`)) return;
     await api(`/api/accounts/${a.id}`, { method: "DELETE" });
@@ -318,15 +259,16 @@ function Accounts({ accounts, configured, reload, toast }: {
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-line bg-card p-5">
-        <h2 className="mb-3 font-semibold">Add an account</h2>
-        <ConnectButtons configured={configured} onConnected={reload} toast={toast} />
+        <h2 className="mb-3 font-semibold">{preset ? `Update the app password for ${preset.email}` : "Add an account"}</h2>
+        <AddAccount key={preset ? `${preset.provider}:${preset.email}` : "new"} preset={preset} configured={configured}
+          onConnected={() => { setPreset(null); reload(); }} toast={toast} />
       </section>
       <div className="overflow-hidden rounded-xl border border-line bg-card">
         {accounts.map((a) => (
           <div key={a.id} className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-4 last:border-0">
-            <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium">{PROVIDER_LABEL[a.provider]}</span>
+            <ProviderIcon icon={providerInfo(a.provider).icon} color={providerInfo(a.provider).color} />
             <div className="min-w-0 flex-1">
-              <div className="truncate font-medium">{a.email}</div>
+              <div className="truncate font-medium">{a.email} <span className="text-xs font-normal text-subtle">· {providerInfo(a.provider).label}</span></div>
               <div className={`text-xs ${a.sync_status === "error" ? "text-danger" : "text-subtle"}`}>
                 {a.sync_status === "syncing" ? `Scanning… ${fmtNum(a.synced)}${a.total ? ` / ~${fmtNum(a.total)}` : ""}`
                   : a.sync_status === "error" ? `Error: ${a.sync_error}`
@@ -334,11 +276,55 @@ function Accounts({ accounts, configured, reload, toast }: {
               </div>
               {a.notice && <div className="mt-1 text-xs text-[#b7791f]">⚠ {a.notice}</div>}
             </div>
+            {a.sync_status === "error" && isImapProvider(a.provider) && (
+              <button onClick={() => { setPreset({ provider: a.provider as ImapProviderId, email: a.email }); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white">Update password</button>
+            )}
             <button disabled={a.sync_status === "syncing"} onClick={() => resync(a)} className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50">Rescan</button>
             <button onClick={() => disconnect(a)} className="rounded-lg border border-line px-3 py-1.5 text-sm text-danger hover:bg-danger/10">Disconnect</button>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function About({ version, dataDir }: { version: string; dataDir: string }) {
+  const item = "rounded-xl border border-line bg-card p-5";
+  return (
+    <div className="max-w-3xl space-y-4 text-sm leading-relaxed">
+      <h1 className="text-2xl font-semibold">Privacy &amp; about</h1>
+      <section className={item}>
+        <h2 className="mb-2 font-semibold">What MailClean reads</h2>
+        <p className="text-subtle">
+          For each email only the sender, date, size, read/inbox status and the sender&apos;s unsubscribe link are read.
+          Subjects, message text and attachments are never downloaded.
+        </p>
+      </section>
+      <section className={item}>
+        <h2 className="mb-2 font-semibold">Where your data lives</h2>
+        <p className="text-subtle">
+          Everything stays on this device. There is no MailClean server or account, and nothing is sent anywhere except
+          directly to your email provider. Passwords and sign-in tokens are encrypted (AES-256-GCM).
+        </p>
+        {dataDir && <p className="mt-2 break-all font-mono text-xs text-subtle">{dataDir}</p>}
+      </section>
+      <section className={item}>
+        <h2 className="mb-2 font-semibold">What it changes</h2>
+        <p className="text-subtle">
+          Only what you click: <b>Move to Trash</b> moves mail to your provider&apos;s Trash (restorable there for about 30 days),
+          <b> Archive</b> removes it from the inbox, and <b>Unsubscribe</b> uses the sender&apos;s own unsubscribe link.
+          Nothing is ever permanently deleted.
+        </p>
+      </section>
+      <section className={item}>
+        <h2 className="mb-2 font-semibold">Removing your data</h2>
+        <p className="text-subtle">
+          <b>Accounts → Disconnect</b> deletes that account&apos;s password and scanned data from this device. Also delete the
+          app password at your provider (Google, Yahoo, Apple…) to revoke access completely.
+        </p>
+      </section>
+      <p className="text-xs text-subtle">MailClean {version}</p>
     </div>
   );
 }

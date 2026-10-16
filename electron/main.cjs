@@ -1,5 +1,6 @@
 // MailClean desktop shell: runs the bundled Next.js server in a utility process and shows it in a window.
-const { app, BrowserWindow, dialog, shell, utilityProcess } = require("electron");
+const { app, BrowserWindow, dialog, session, shell, utilityProcess } = require("electron");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
@@ -9,6 +10,8 @@ const PORT = Number(process.env.MAILCLEAN_PORT) || 47321;
 const APP_URL = `http://localhost:${PORT}`;
 // `npm run desktop:dev` points this at the Next dev server instead of the bundled one.
 const DEV_URL = process.env.MAILCLEAN_DEV_URL;
+// Per-launch secret: the server only answers API requests that carry it (see src/middleware.ts).
+const TOKEN = crypto.randomBytes(32).toString("hex");
 
 let server = null;
 let win = null;
@@ -57,6 +60,7 @@ function startServer() {
       // Loopback only: the app has no login, so it must never be reachable from the network.
       HOSTNAME: "127.0.0.1",
       APP_URL,
+      MAILCLEAN_TOKEN: TOKEN,
       DATA_DIR: path.join(app.getPath("userData"), "data"),
       NEXT_TELEMETRY_DISABLED: "1",
     },
@@ -76,7 +80,7 @@ function waitForServer(url, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve, reject) => {
     const attempt = () => {
-      const req = http.get(`${url}/api/accounts`, (res) => {
+      const req = http.get(`${url}/api/accounts`, { headers: { "x-mailclean-token": TOKEN } }, (res) => {
         res.resume();
         if (res.statusCode === 200) resolve();
         else retry();
@@ -135,6 +139,11 @@ function createWindow(baseUrl) {
 async function start() {
   const baseUrl = DEV_URL || APP_URL;
   if (!DEV_URL) {
+    // Attach the token to every request this app makes to its own server.
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+      { urls: [`http://localhost:${PORT}/*`, `http://127.0.0.1:${PORT}/*`] },
+      (details, callback) => callback({ requestHeaders: { ...details.requestHeaders, "x-mailclean-token": TOKEN } }),
+    );
     startServer();
     try {
       await waitForServer(APP_URL);

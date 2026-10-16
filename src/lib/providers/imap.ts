@@ -3,25 +3,39 @@ import type { MessageMeta } from "../db";
 import { parseListUnsubscribe } from "../headers";
 import { chunk } from "./types";
 
-// IMAP accounts sign in with an app password instead of OAuth.
-export const IMAP_HOSTS = {
-  yahoo: { host: "imap.mail.yahoo.com", port: 993, label: "Yahoo Mail" },
-} as const;
-export type ImapProvider = keyof typeof IMAP_HOSTS;
-
-const SKIP = new Set(["\\Trash", "\\Junk", "\\Sent", "\\Drafts"]);
-
-// Yahoo's IMAP server only exposes the newest 10,000 messages of each folder.
-export const IMAP_FOLDER_CAP = 10_000;
-
-function client(provider: ImapProvider, email: string, password: string) {
-  const { host, port } = IMAP_HOSTS[provider];
-  return new ImapFlow({ host, port, secure: true, auth: { user: email, pass: password }, logger: false });
+/** Connection details for an app-password IMAP account. */
+export interface ImapConfig {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  /** Provider name for messages, e.g. "Yahoo Mail". */
+  label: string;
+  /** Server only exposes the newest N messages per folder (Yahoo, AOL). */
+  folderCap?: number;
 }
 
-async function withClient<T>(provider: ImapProvider, email: string, password: string, fn: (c: ImapFlow) => Promise<T>) {
-  const c = client(provider, email, password);
-  await c.connect();
+// Folders whose mail we never count or clean.
+const SKIP = new Set(["\\Trash", "\\Junk", "\\Sent", "\\Drafts"]);
+
+function client(cfg: ImapConfig) {
+  return new ImapFlow({
+    host: cfg.host,
+    port: cfg.port,
+    secure: true, // TLS only; we never send passwords over plain connections
+    auth: { user: cfg.user, pass: cfg.pass },
+    logger: false,
+    socketTimeout: 120_000,
+  });
+}
+
+async function withClient<T>(cfg: ImapConfig, fn: (c: ImapFlow) => Promise<T>) {
+  const c = client(cfg);
+  try {
+    await c.connect();
+  } catch (e) {
+    throw friendlyError(cfg, e);
+  }
   try {
     return await fn(c);
   } finally {
@@ -29,17 +43,23 @@ async function withClient<T>(provider: ImapProvider, email: string, password: st
   }
 }
 
-/** Checks the email and app password by logging in. Throws a readable error on failure. */
-export async function verifyLogin(provider: ImapProvider, email: string, password: string) {
-  try {
-    await withClient(provider, email, password, async () => {});
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (/auth|login|credentials|invalid/i.test(msg + ((e as { responseText?: string }).responseText ?? ""))) {
-      throw new Error("Login failed — check the email and use an app password, not your normal password");
-    }
-    throw new Error(`Could not reach ${IMAP_HOSTS[provider].label}: ${msg}`);
+/** Turns IMAP connection errors into messages a user can act on. */
+function friendlyError(cfg: ImapConfig, e: unknown): Error {
+  const err = e as { message?: string; responseText?: string; authenticationFailed?: boolean; code?: string };
+  const text = `${err.message ?? ""} ${err.responseText ?? ""}`;
+  if (err.authenticationFailed || /auth|login|credentials|password|invalid/i.test(text)) {
+    return new Error(`${cfg.label} rejected the login. Check the email address and create a new app password — your normal password won't work.`);
   }
+  if (/ENOTFOUND|EAI_AGAIN/.test(`${err.code} ${text}`)) return new Error(`Can't find the server ${cfg.host}. Check the server name and your internet connection.`);
+  if (/ETIMEDOUT|ECONNREFUSED|ECONNRESET|timeout/i.test(`${err.code} ${text}`)) {
+    return new Error(`Can't connect to ${cfg.host}:${cfg.port}. Check your internet connection and that IMAP is enabled.`);
+  }
+  return new Error(`${cfg.label}: ${err.message ?? String(e)}`);
+}
+
+/** Checks the login. Throws a readable error on failure. */
+export async function verifyLogin(cfg: ImapConfig) {
+  await withClient(cfg, async () => {});
 }
 
 // msg_id = "<uidValidity>:<uid>:<folder path>" so trash/archive know where each message lives.
@@ -50,49 +70,62 @@ function parseId(id: string) {
   return { uid: Number(id.slice(a + 1, b)), path: id.slice(b + 1) };
 }
 
-const folders = async (c: ImapFlow) =>
-  (await c.list()).filter((f) => !f.flags.has("\\Noselect") && !(f.specialUse && SKIP.has(f.specialUse)));
+const selectable = (list: ListResponse[]) => list.filter((f) => !f.flags.has("\\Noselect"));
+const isInboxFolder = (f: ListResponse) => f.specialUse === "\\Inbox" || f.path.toUpperCase() === "INBOX";
+
+/**
+ * Gmail exposes labels as folders, so the same email appears in several of them. When the server has an
+ * "All Mail" folder (\All) we scan only that one and read Gmail labels instead.
+ */
+function scanPlan(list: ListResponse[]): { folders: ListResponse[]; allMail: boolean } {
+  const all = list.find((f) => f.specialUse === "\\All");
+  if (all) return { folders: [all], allMail: true };
+  return { folders: selectable(list).filter((f) => !(f.specialUse && SKIP.has(f.specialUse))), allMail: false };
+}
 
 const special = (list: ListResponse[], use: string, fallback: string) =>
   list.find((f) => f.specialUse === use)?.path ?? list.find((f) => f.path.toLowerCase() === fallback.toLowerCase())?.path ?? fallback;
 
+function headerValue(raw: string, name: string) {
+  return raw.match(new RegExp(`^${name}:\\s*([\\s\\S]*?)(?=\\r?\\n\\S|$)`, "im"))?.[1].replace(/\r?\n\s+/g, " ").trim();
+}
+
 export async function imapSync(
-  provider: ImapProvider,
-  email: string,
-  password: string,
+  cfg: ImapConfig,
   hooks: {
     onTotal: (n: number) => void; onBatch: (rows: MessageMeta[]) => void; onSeen: (id: string) => void; limit: number;
     onCapped: (folders: string[]) => void;
   },
 ): Promise<boolean> {
-  return withClient(provider, email, password, async (c) => {
-    const list = await folders(c);
+  return withClient(cfg, async (c) => {
+    const { folders, allMail } = scanPlan(await c.list());
     let total = 0;
-    for (const f of list) total += (await c.status(f.path, { messages: true })).messages ?? 0;
+    for (const f of folders) total += (await c.status(f.path, { messages: true })).messages ?? 0;
     hooks.onTotal(Math.min(total, hooks.limit));
 
     let walked = 0;
     const capped: string[] = [];
-    for (const f of list) {
+    for (const f of folders) {
       if (walked >= hooks.limit) return false;
       const lock = await c.getMailboxLock(f.path, { readOnly: true });
       try {
         const box = c.mailbox;
         if (!box || !box.exists) continue;
-        const inInbox = f.specialUse === "\\Inbox" || f.path.toUpperCase() === "INBOX";
-        if (box.exists >= IMAP_FOLDER_CAP) capped.push(inInbox ? "Inbox" : f.name || f.path);
+        const folderIsInbox = isInboxFolder(f);
+        if (cfg.folderCap && box.exists >= cfg.folderCap) capped.push(folderIsInbox ? "Inbox" : f.name || f.path);
         let batch: MessageMeta[] = [];
         // One FETCH streams headers for the whole folder — far faster than per-message API calls.
         for await (const m of c.fetch("1:*", {
-          uid: true, flags: true, size: true, internalDate: true, envelope: true,
+          uid: true, flags: true, size: true, internalDate: true, envelope: true, labels: allMail,
           headers: ["list-unsubscribe", "list-unsubscribe-post"],
         })) {
           const id = makeId(box.uidValidity, m.uid, f.path);
+          const labels = m.labels ?? new Set<string>();
+          // In Gmail's All Mail, skip your own sent mail and drafts unless they are also in the inbox.
+          if (allMail && (labels.has("\\Sent") || labels.has("\\Draft")) && !labels.has("\\Inbox")) continue;
           hooks.onSeen(id);
           const raw = m.headers?.toString("utf8") ?? "";
-          const header = (name: string) =>
-            raw.match(new RegExp(`^${name}:\\s*([\\s\\S]*?)(?=\\r?\\n\\S|$)`, "im"))?.[1].replace(/\r?\n\s+/g, " ").trim();
-          const unsub = parseListUnsubscribe(header("List-Unsubscribe"), header("List-Unsubscribe-Post"));
+          const unsub = parseListUnsubscribe(headerValue(raw, "List-Unsubscribe"), headerValue(raw, "List-Unsubscribe-Post"));
           const from = m.envelope?.from?.[0];
           batch.push({
             msg_id: id,
@@ -101,7 +134,7 @@ export async function imapSync(
             date: new Date(m.internalDate ?? m.envelope?.date ?? Date.now()).getTime(),
             size: m.size ?? 0,
             unread: !m.flags?.has("\\Seen"),
-            in_inbox: inInbox,
+            in_inbox: allMail ? labels.has("\\Inbox") : folderIsInbox,
             unsub_http: unsub.http,
             unsub_mailto: unsub.mailto,
             one_click: unsub.oneClick,
@@ -119,20 +152,31 @@ export async function imapSync(
   });
 }
 
-async function moveAll(provider: ImapProvider, email: string, password: string, ids: string[], target: "trash" | "archive") {
+async function moveAll(cfg: ImapConfig, ids: string[], target: "trash" | "archive") {
   const byFolder = new Map<string, number[]>();
   for (const id of ids) {
     const { uid, path } = parseId(id);
     byFolder.set(path, [...(byFolder.get(path) ?? []), uid]);
   }
-  await withClient(provider, email, password, async (c) => {
+  await withClient(cfg, async (c) => {
     const all = await c.list();
-    const dest = target === "trash" ? special(all, "\\Trash", "Trash") : special(all, "\\Archive", "Archive");
+    const allMail = all.find((f) => f.specialUse === "\\All")?.path;
+    const trash = special(all, "\\Trash", "Trash");
     for (const [path, uids] of byFolder) {
-      if (path === dest) continue;
       const lock = await c.getMailboxLock(path);
       try {
-        for (const part of chunk(uids, 1000)) await c.messageMove(part.join(","), dest, { uid: true });
+        for (const part of chunk(uids, 1000)) {
+          const range = part.join(",");
+          if (target === "trash") {
+            if (path !== trash) await c.messageMove(range, trash, { uid: true });
+          } else if (path === allMail) {
+            // Gmail: archiving = removing the Inbox label.
+            await c.messageFlagsRemove(range, ["\\Inbox"], { uid: true, useLabels: true });
+          } else {
+            const archive = special(all, "\\Archive", "Archive");
+            if (path !== archive) await c.messageMove(range, archive, { uid: true });
+          }
+        }
       } finally {
         lock.release();
       }
@@ -140,5 +184,5 @@ async function moveAll(provider: ImapProvider, email: string, password: string, 
   });
 }
 
-export const imapTrash = (p: ImapProvider, email: string, pw: string, ids: string[]) => moveAll(p, email, pw, ids, "trash");
-export const imapArchive = (p: ImapProvider, email: string, pw: string, ids: string[]) => moveAll(p, email, pw, ids, "archive");
+export const imapTrash = (cfg: ImapConfig, ids: string[]) => moveAll(cfg, ids, "trash");
+export const imapArchive = (cfg: ImapConfig, ids: string[]) => moveAll(cfg, ids, "archive");

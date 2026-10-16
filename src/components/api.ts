@@ -2,7 +2,7 @@
 
 export interface Account {
   id: string;
-  provider: "google" | "microsoft" | "yahoo";
+  provider: string; // see providerInfo() in src/lib/catalog.ts
   email: string;
   sync_status: "idle" | "syncing" | "done" | "error";
   sync_error: string | null;
@@ -26,18 +26,13 @@ export interface Overview {
 
 export interface AccountShare {
   account_id: string;
-  provider: Account["provider"];
+  provider: string;
   email: string;
   count: number;
   bytes: number;
   unread: number;
 }
 
-export const PROVIDER = {
-  google: { label: "Gmail", icon: "G", color: "#ea4335" },
-  yahoo: { label: "Yahoo", icon: "Y!", color: "#7e1fff" },
-  microsoft: { label: "Outlook", icon: "O", color: "#0078d4" },
-} as const;
 
 export interface Sender {
   email: string;

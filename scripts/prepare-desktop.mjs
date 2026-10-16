@@ -22,11 +22,14 @@ for (const name of fs.readdirSync(standalone)) {
   }
 }
 
-// OAuth keys: read from .env.local / .env and written to build/config.json (gitignored),
+// OAuth keys are only bundled when MAILCLEAN_BUNDLE_OAUTH=1 (personal builds). Public builds ship without
+// them: anything inside an installer can be extracted, and app-password accounts don't need them.
+// Keys are read from .env.local / .env and written to build/config.json (gitignored),
 // which electron-builder copies into the app as resources/config.json.
 const keys = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET", "MICROSOFT_TENANT", "SYNC_LIMIT"];
 const config = {};
-for (const file of [".env", ".env.local"]) {
+const bundleOAuth = process.env.MAILCLEAN_BUNDLE_OAUTH === "1";
+for (const file of bundleOAuth ? [".env", ".env.local"] : []) {
   const p = path.join(root, file);
   if (!fs.existsSync(p)) continue;
   for (const line of fs.readFileSync(p, "utf8").split(/\r?\n/)) {
@@ -36,4 +39,6 @@ for (const file of [".env", ".env.local"]) {
 }
 fs.mkdirSync(path.join(root, "build"), { recursive: true });
 fs.writeFileSync(path.join(root, "build", "config.json"), JSON.stringify(config, null, 2));
-console.log(`desktop config: ${Object.keys(config).join(", ") || "(no keys found — Gmail sign-in will be disabled)"}`);
+console.log(bundleOAuth
+  ? `desktop config: ${Object.keys(config).join(", ") || "(no keys found)"}`
+  : "desktop config: public build — no OAuth keys bundled (set MAILCLEAN_BUNDLE_OAUTH=1 to include them)");

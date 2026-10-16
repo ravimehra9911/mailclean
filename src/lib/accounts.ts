@@ -3,12 +3,29 @@ import { db, getAccount, insertMessages, updateAccount, type AccountRow, type OA
 import { decrypt, encrypt } from "./crypto";
 import { google } from "./providers/google";
 import { microsoft } from "./providers/microsoft";
-import { imapArchive, imapSync, imapTrash, IMAP_FOLDER_CAP, IMAP_HOSTS, type ImapProvider } from "./providers/imap";
+import { IMAP_PROVIDERS, isImapProvider, type ImapProviderId } from "./catalog";
+import { imapArchive, imapSync, imapTrash, type ImapConfig } from "./providers/imap";
 import type { MailProvider } from "./providers/types";
 
 export const providers: Record<OAuthProvider, MailProvider> = { google, microsoft };
 
-const isImap = (p: string): p is ImapProvider => p in IMAP_HOSTS;
+const isImap = isImapProvider;
+
+/** IMAP settings for an account: stored values, falling back to the provider's defaults. */
+export function imapConfig(a: AccountRow): ImapConfig {
+  if (!isImap(a.provider) || !a.refresh_token) throw new Error("Not an IMAP account");
+  const info = IMAP_PROVIDERS[a.provider];
+  const host = a.imap_host || info.host;
+  if (!host) throw new Error("No IMAP server set for this account — remove it and add it again");
+  return {
+    host,
+    port: a.imap_port || info.port,
+    user: a.imap_user || a.email,
+    pass: decrypt(a.refresh_token),
+    label: info.label,
+    folderCap: "folderCap" in info ? info.folderCap : undefined,
+  };
+}
 
 export function isConfigured(p: "google" | "microsoft") {
   return p === "google"
@@ -39,15 +56,21 @@ export function saveConnectedAccount(
 }
 
 /** Saves an IMAP account; the app password is stored encrypted. */
-export function saveImapAccount(provider: ImapProvider, email: string, password: string): string {
+export function saveImapAccount(
+  provider: ImapProviderId,
+  email: string,
+  password: string,
+  conn: { host: string; port: number; user: string },
+): string {
+  const fields = { refresh_token: encrypt(password), imap_host: conn.host, imap_port: conn.port, imap_user: conn.user, sync_error: null };
   const existing = db().prepare("SELECT id FROM accounts WHERE provider = ? AND email = ?").get(provider, email) as { id: string } | undefined;
   if (existing) {
-    updateAccount(existing.id, { refresh_token: encrypt(password), sync_error: null });
+    updateAccount(existing.id, fields);
     return existing.id;
   }
   const id = crypto.randomUUID();
-  db().prepare(`INSERT INTO accounts (id, provider, email, refresh_token, created_at) VALUES (?, ?, ?, ?, ?)`)
-    .run(id, provider, email, encrypt(password), Date.now());
+  db().prepare(`INSERT INTO accounts (id, provider, email, refresh_token, imap_host, imap_port, imap_user, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, provider, email, fields.refresh_token, conn.host, conn.port, conn.user, Date.now());
   return id;
 }
 
@@ -99,15 +122,18 @@ async function runSync(a: AccountRow) {
       limit,
     };
     const complete = isImap(a.provider)
-      ? await imapSync(a.provider, a.email, decrypt(a.refresh_token!), {
-          ...hooks,
-          onCapped: (folders) => updateAccount(a.id, {
-            notice: folders.length
-              ? `${IMAP_HOSTS[a.provider as ImapProvider].label} only lets apps see the newest ${IMAP_FOLDER_CAP.toLocaleString("en-IN")} emails in ${folders.join(", ")}. `
-                + "Older emails appear automatically as you clean up — MailClean rescans after each clean-up."
-              : null,
-          }),
-        })
+      ? await (async () => {
+          const cfg = imapConfig(a);
+          return imapSync(cfg, {
+            ...hooks,
+            onCapped: (folders) => updateAccount(a.id, {
+              notice: folders.length
+                ? `${cfg.label} only lets apps see the newest ${cfg.folderCap!.toLocaleString("en-IN")} emails in ${folders.join(", ")}. `
+                  + "Older emails appear automatically as you clean up — MailClean rescans after each clean-up."
+                : null,
+            }),
+          });
+        })()
       : await providers[a.provider].sync({ ...hooks, getToken: () => accessToken(a.id), isKnown: (msgId) => known.has(msgId) });
     // Drop rows for mail that was deleted elsewhere (only safe after a full walk).
     if (complete) {
@@ -126,8 +152,8 @@ async function runSync(a: AccountRow) {
 export async function moveMessages(a: AccountRow, ids: string[], action: "trash" | "archive") {
   if (isImap(a.provider)) {
     const fn = action === "trash" ? imapTrash : imapArchive;
-    await fn(a.provider, a.email, decrypt(a.refresh_token!), ids);
-    // Folders are capped (see IMAP_FOLDER_CAP); rescanning after a clean-up brings older mail into view.
+    await fn(imapConfig(a), ids);
+    // Capped folders (Yahoo, AOL): rescanning after a clean-up brings older mail into view.
     if (a.notice) startSync(a.id);
     return;
   }

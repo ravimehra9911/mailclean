@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, fmtBytes, fmtDate, fmtNum, pct, PROVIDER, type AccountShare, type Sender } from "./api";
+import { providerInfo } from "@/lib/catalog";
+import { api, fmtBytes, fmtDate, fmtNum, pct, type AccountShare, type Sender } from "./api";
 
 type Filter = "all" | "newsletters" | "mostly-unread";
 type Sort = "count" | "bytes" | "unread" | "last";
@@ -207,7 +208,7 @@ export function SendersTable(props: {
 
 /** Shows which connected inbox an email count belongs to, e.g. "G ravimehra9911@gmail.com · 120". */
 export function AccountChip({ share, showCount = true }: { share: Pick<AccountShare, "provider" | "email"> & { count?: number }; showCount?: boolean }) {
-  const p = PROVIDER[share.provider];
+  const p = providerInfo(share.provider);
   return (
     <span title={`${p.label}: ${share.email}`}
       className="inline-flex max-w-[230px] items-center gap-1.5 rounded-md border border-line px-1.5 py-0.5 text-xs">
