@@ -59,3 +59,92 @@ body {
   background: var(--bg);
   color: var(--ink);
 }
+
+/* ---------- Landing page effects (src/components/site/Effects.tsx) ---------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.reveal-in {
+  opacity: 1;
+  transform: none;
+}
+
+.tilt {
+  transition: transform 0.25s ease-out;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* Cursor-following spotlight on cards (--x/--y set by SpotlightGrid). */
+.spot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background: radial-gradient(260px circle at var(--x, 50%) var(--y, 50%), color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+}
+.spot:hover::before {
+  opacity: 1;
+}
+
+/* Soft moving glows behind the hero. */
+.hero-glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.35;
+  animation: glow-drift 18s ease-in-out infinite alternate;
+}
+@keyframes glow-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, -30px) scale(1.15); }
+  100% { transform: translate(-30px, 20px) scale(0.95); }
+}
+
+/* Shimmering gradient text. */
+.shimmer-text {
+  background: linear-gradient(90deg, var(--accent), #c084fc, #60a5fa, var(--accent));
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+@keyframes shimmer {
+  to { background-position: 300% 0; }
+}
+
+/* Gentle float for the hero screenshot. */
+.float {
+  animation: float 7s ease-in-out infinite;
+}
+@keyframes float {
+  50% { transform: translateY(-8px); }
+}
+
+/* Mini demo rows sliding out. */
+.demo-row {
+  transition: opacity 0.45s ease, transform 0.45s ease, max-height 0.45s ease, margin 0.45s ease, padding 0.45s ease;
+  max-height: 3rem;
+}
+.demo-row-gone {
+  opacity: 0;
+  transform: translateX(40px);
+  max-height: 0;
+  margin-top: 0 !important;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal-in { opacity: 1; transform: none; transition: none; }
+  .hero-glow, .shimmer-text, .float { animation: none; }
+  .tilt, .demo-row { transition: none; }
+}

@@ -5,6 +5,7 @@ import { isImapProvider, providerInfo, type ImapProviderId } from "@/lib/catalog
 import { AddAccount, ProviderIcon } from "./AddAccount";
 import { ALL_TIME, DateFilter, rangeLabel, rangeParams, type DateRange } from "./DateFilter";
 import { ThemeToggle } from "./ThemeToggle";
+import { UpdateBanner, UpdateSection, useUpdates, type UpdateInfo } from "./Updates";
 import { api, fmtBytes, fmtNum, pct, type Account, type Overview } from "./api";
 import { AccountChip, SendersTable } from "./SendersTable";
 import { VolumeChart } from "./VolumeChart";
@@ -17,6 +18,7 @@ export default function Dashboard() {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [configured, setConfigured] = useState({ google: false, microsoft: false });
   const [about, setAbout] = useState({ version: "", dataDir: "", demo: false });
+  const updates = useUpdates();
   const [accountId, setAccountId] = useState("");
   const [range, setRange] = useState<DateRange>(ALL_TIME);
   const [ov, setOv] = useState<Overview | null>(null);
@@ -123,8 +125,9 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+        <UpdateBanner info={updates.info} />
         {tab === "about" ? (
-          <About version={about.version} dataDir={about.dataDir} />
+          <About version={about.version} dataDir={about.dataDir} updates={updates} />
         ) : accounts.length === 0 ? (
           <Welcome configured={configured} onConnected={changed} toast={toast} />
         ) : (
@@ -324,7 +327,9 @@ function Accounts({ accounts, configured, reload, toast }: {
   );
 }
 
-function About({ version, dataDir }: { version: string; dataDir: string }) {
+function About({ version, dataDir, updates }: {
+  version: string; dataDir: string; updates: { info: UpdateInfo | null; checking: boolean; check: (force?: boolean) => void };
+}) {
   const item = "rounded-xl border border-line bg-card p-5";
   return (
     <div className="max-w-3xl space-y-4 text-sm leading-relaxed">
@@ -359,6 +364,7 @@ function About({ version, dataDir }: { version: string; dataDir: string }) {
           app password at your provider (Google, Yahoo, Apple…) to revoke access completely.
         </p>
       </section>
+      <UpdateSection {...updates} version={version} />
       <p className="text-xs text-subtle">MailClean {version}</p>
     </div>
   );

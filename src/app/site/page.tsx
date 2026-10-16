@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { CleanupDemo, CountUp, Downloads, Reveal, ScrollProgress, SpotlightGrid, Tilt } from "@/components/site/Effects";
 
 // Landing page for the hosted website (served at "/" on Vercel; see src/middleware.ts).
 
@@ -20,10 +21,17 @@ export const metadata: Metadata = {
 };
 
 const DOWNLOADS = [
-  { os: "macOS", detail: "Apple Silicon (M1–M4)", file: "MailClean-mac-arm64.dmg", icon: AppleIcon },
-  { os: "macOS", detail: "Intel", file: "MailClean-mac-x64.dmg", icon: AppleIcon },
-  { os: "Windows", detail: "Windows 10/11, 64-bit", file: "MailClean-windows-x64.exe", icon: WindowsIcon },
-  { os: "Linux", detail: "AppImage, x86-64", file: "MailClean-linux-x86_64.AppImage", icon: LinuxIcon },
+  { os: "macOS", detail: "Apple Silicon (M1–M4)", file: "MailClean-mac-arm64.dmg", key: "mac", arch: "arm", Icon: AppleIcon },
+  { os: "macOS", detail: "Intel", file: "MailClean-mac-x64.dmg", key: "mac", arch: "x86", Icon: AppleIcon },
+  { os: "Windows", detail: "Windows 10/11, 64-bit", file: "MailClean-windows-x64.exe", key: "windows", Icon: WindowsIcon },
+  { os: "Linux", detail: "AppImage, x86-64", file: "MailClean-linux-x86_64.AppImage", key: "linux", Icon: LinuxIcon },
+] as const;
+
+const STATS = [
+  { value: 6, suffix: "", label: "mail providers" },
+  { value: 0, suffix: "", label: "servers that see your email" },
+  { value: 100, suffix: "%", label: "runs on your computer" },
+  { value: 30, suffix: " days", label: "to undo any clean-up" },
 ];
 
 const FEATURES = [
@@ -73,7 +81,8 @@ const FAQ = [
 
 export default function SitePage() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-clip">
+      <ScrollProgress />
       <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
           <a href="#" className="flex items-center gap-2 font-semibold">
@@ -92,12 +101,17 @@ export default function SitePage() {
 
       <main>
         {/* Hero */}
-        <section className="mx-auto max-w-6xl px-4 pt-16 pb-10 text-center md:pt-24">
+        <section className="relative mx-auto max-w-6xl px-4 pt-16 pb-10 text-center md:pt-24">
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+            <div className="hero-glow top-10 left-[10%] size-72 bg-accent" />
+            <div className="hero-glow top-40 right-[8%] size-80 bg-[#c084fc]" style={{ animationDelay: "-6s" }} />
+            <div className="hero-glow top-[28rem] left-[35%] size-96 bg-[#60a5fa]" style={{ animationDelay: "-12s" }} />
+          </div>
           <a href={REPO} className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-subtle hover:text-ink">
             <GitHubIcon className="size-3.5" /> Free &amp; open source · MIT license
           </a>
           <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">
-            Clean up every inbox <span className="text-accent">in one place</span>
+            Clean up every inbox <span className="shimmer-text">in one place</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-subtle">
             See which senders fill your Gmail, Yahoo and iCloud inboxes, unsubscribe from newsletters and clear
@@ -112,10 +126,12 @@ export default function SitePage() {
             </a>
           </div>
           <p className="mt-3 text-xs text-subtle">macOS · Windows · Linux{VERSION && ` · v${VERSION}`}</p>
-          <div className="mx-auto mt-12 max-w-5xl overflow-hidden rounded-2xl border border-line bg-card shadow-2xl">
-            <img src="/screenshots/overview-dark.png" alt="MailClean overview showing totals per account and the top senders"
-              width={1440} height={900} className="w-full" />
-          </div>
+          <Tilt className="mx-auto mt-12 max-w-5xl">
+            <div className="float overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-accent/20">
+              <img src="/screenshots/overview-dark.png" alt="MailClean overview showing totals per account and the top senders"
+                width={1440} height={900} className="w-full" />
+            </div>
+          </Tilt>
         </section>
 
         {/* Providers */}
@@ -126,17 +142,39 @@ export default function SitePage() {
           </div>
         </section>
 
+        {/* Try it + stats */}
+        <section className="mx-auto grid max-w-6xl gap-10 px-4 py-20 md:grid-cols-2 md:items-center">
+          <Reveal>
+            <h2 className="text-3xl font-semibold">Thousands of emails, gone in one click</h2>
+            <p className="mt-4 leading-relaxed text-subtle">
+              Newsletters and promotions pile up for years. MailClean shows which senders they come from and
+              clears all of them at once. Try it here.
+            </p>
+            <dl className="mt-8 grid grid-cols-2 gap-4">
+              {STATS.map((st) => (
+                <div key={st.label} className="rounded-xl border border-line bg-card p-4">
+                  <dt className="text-2xl font-semibold text-accent"><CountUp to={st.value} suffix={st.suffix} /></dt>
+                  <dd className="mt-1 text-xs text-subtle">{st.label}</dd>
+                </div>
+              ))}
+            </dl>
+          </Reveal>
+          <Reveal delay={150}><CleanupDemo /></Reveal>
+        </section>
+
         {/* Features */}
         <section id="features" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20">
-          <h2 className="text-center text-3xl font-semibold">Everything you need to tame your inbox</h2>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="rounded-2xl border border-line bg-card p-6">
-                <h3 className="font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-subtle">{f.text}</p>
-              </div>
+          <Reveal><h2 className="text-center text-3xl font-semibold">Everything you need to tame your inbox</h2></Reveal>
+          <SpotlightGrid className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f, i) => (
+              <Reveal key={f.title} delay={(i % 3) * 100}>
+                <div className="spot relative h-full overflow-hidden rounded-2xl border border-line bg-card p-6 transition hover:-translate-y-1 hover:border-accent/50 hover:shadow-xl">
+                  <h3 className="relative font-semibold">{f.title}</h3>
+                  <p className="relative mt-2 text-sm leading-relaxed text-subtle">{f.text}</p>
+                </div>
+              </Reveal>
             ))}
-          </div>
+          </SpotlightGrid>
         </section>
 
         {/* Screenshots */}
@@ -145,13 +183,16 @@ export default function SitePage() {
             <h2 className="text-center text-3xl font-semibold">See it in action</h2>
             <p className="mt-3 text-center text-subtle">Light and dark mode, on every platform. Shown with sample data.</p>
             <div className="mt-10 grid gap-6 md:grid-cols-2">
-              {SHOTS.map((s) => (
-                <figure key={s.src}>
-                  <a href={s.src} className="block overflow-hidden rounded-xl border border-line bg-card shadow-lg transition hover:-translate-y-0.5">
-                    <img src={s.src} alt={s.alt} width={1440} height={900} loading="lazy" className="w-full" />
-                  </a>
-                  <figcaption className="mt-3 text-center text-sm text-subtle">{s.caption}</figcaption>
-                </figure>
+              {SHOTS.map((s, i) => (
+                <Reveal key={s.src} delay={(i % 2) * 120}>
+                  <figure>
+                    <a href={s.src} className="group block overflow-hidden rounded-xl border border-line bg-card shadow-lg transition hover:-translate-y-1 hover:shadow-2xl">
+                      <img src={s.src} alt={s.alt} width={1440} height={900} loading="lazy"
+                        className="w-full transition duration-500 group-hover:scale-[1.03]" />
+                    </a>
+                    <figcaption className="mt-3 text-center text-sm text-subtle">{s.caption}</figcaption>
+                  </figure>
+                </Reveal>
               ))}
             </div>
           </div>
@@ -166,10 +207,14 @@ export default function SitePage() {
               ["Create an app password", "MailClean shows the exact steps for Gmail, Yahoo, iCloud and others."],
               ["Clean up", "See your biggest senders, unsubscribe and clear thousands of emails at once."],
             ].map(([t, d], i) => (
-              <li key={t} className="rounded-2xl border border-line bg-card p-6">
-                <span className="grid size-8 place-items-center rounded-full bg-accent text-sm font-semibold text-white">{i + 1}</span>
-                <h3 className="mt-4 font-semibold">{t}</h3>
-                <p className="mt-2 text-sm text-subtle">{d}</p>
+              <li key={t}>
+                <Reveal delay={i * 120} className="h-full">
+                  <div className="h-full rounded-2xl border border-line bg-card p-6 transition hover:-translate-y-1 hover:shadow-xl">
+                    <span className="grid size-8 place-items-center rounded-full bg-accent text-sm font-semibold text-white">{i + 1}</span>
+                    <h3 className="mt-4 font-semibold">{t}</h3>
+                    <p className="mt-2 text-sm text-subtle">{d}</p>
+                  </div>
+                </Reveal>
               </li>
             ))}
           </ol>
@@ -192,9 +237,13 @@ export default function SitePage() {
                 "Passwords encrypted on your device (AES-256-GCM)",
                 "Nothing permanently deleted — Trash keeps mail for ~30 days",
                 "Open source: anyone can check the code",
-              ].map((t) => (
-                <li key={t} className="flex gap-3 rounded-xl border border-line bg-card px-4 py-3">
-                  <span className="text-ok">✓</span> {t}
+              ].map((t, i) => (
+                <li key={t}>
+                  <Reveal delay={i * 80}>
+                    <div className="flex gap-3 rounded-xl border border-line bg-card px-4 py-3 transition hover:translate-x-1 hover:border-ok/50">
+                      <span className="text-ok">✓</span> {t}
+                    </div>
+                  </Reveal>
                 </li>
               ))}
             </ul>
@@ -205,17 +254,12 @@ export default function SitePage() {
         <section id="download" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20">
           <h2 className="text-center text-3xl font-semibold">Download MailClean</h2>
           <p className="mt-3 text-center text-subtle">Free for everyone{VERSION && ` · version ${VERSION}`}</p>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {DOWNLOADS.map((d) => (
-              <a key={d.file} href={dl(d.file)}
-                className="group rounded-2xl border border-line bg-card p-6 transition hover:border-accent">
-                <d.icon className="size-8 text-ink" />
-                <div className="mt-4 font-semibold">{d.os}</div>
-                <div className="text-sm text-subtle">{d.detail}</div>
-                <div className="mt-4 text-sm font-medium text-accent group-hover:underline">Download ↓</div>
-              </a>
-            ))}
-          </div>
+          <Reveal className="mt-10">
+            <Downloads items={DOWNLOADS.map((d) => ({
+              os: d.os, detail: d.detail, key: d.key, arch: "arch" in d ? d.arch : undefined, href: dl(d.file),
+              icon: <d.Icon className="size-8 text-ink" />,
+            }))} />
+          </Reveal>
           <div className="mt-4 rounded-2xl border border-line bg-card p-6 text-center">
             <div className="font-semibold">Just want to look first?</div>
             <p className="mt-1 text-sm text-subtle">The web demo runs in your browser with sample data — no download, no sign-in.</p>
