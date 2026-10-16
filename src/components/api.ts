@@ -22,6 +22,7 @@ export interface Overview {
   newsletters: number;
   daily: { day: string; count: number }[];
   byAccount: AccountShare[];
+  years: number[];
 }
 
 export interface AccountShare {

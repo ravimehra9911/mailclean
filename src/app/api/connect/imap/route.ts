@@ -1,3 +1,4 @@
+import { DEMO_MESSAGE, isDemo } from "@/lib/demo";
 import { NextResponse } from "next/server";
 import { saveImapAccount, startSync } from "@/lib/accounts";
 import { IMAP_PROVIDERS, isImapProvider } from "@/lib/catalog";
@@ -6,6 +7,7 @@ import { verifyLogin } from "@/lib/providers/imap";
 const HOSTNAME = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
 
 export async function POST(req: Request) {
+  if (isDemo()) return NextResponse.json({ error: DEMO_MESSAGE }, { status: 403 });
   const body = (await req.json().catch(() => ({}))) as {
     provider?: string; email?: string; password?: string; host?: string; port?: number | string; username?: string;
   };

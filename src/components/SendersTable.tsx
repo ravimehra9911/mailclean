@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { mailboxLink, providerInfo } from "@/lib/catalog";
 import { api, fmtBytes, fmtDate, fmtNum, pct, type AccountShare, type Sender } from "./api";
+import { rangeParams, type DateRange } from "./DateFilter";
 
 type Filter = "all" | "newsletters" | "mostly-unread";
-type Sort = "count" | "bytes" | "unread" | "last";
+type Sort = "name" | "account" | "count" | "bytes" | "unread" | "last";
+type Dir = "asc" | "desc";
 
 export function SendersTable(props: {
   accountId: string;
+  range: DateRange;
   initialFilter?: Filter;
   pageSize?: number;
   compact?: boolean;
@@ -16,9 +19,9 @@ export function SendersTable(props: {
   onChanged: () => void;
   toast: (msg: string, kind?: "ok" | "err") => void;
 }) {
-  const { accountId, compact, pageSize = 25, refreshKey, onChanged, toast } = props;
+  const { accountId, range, compact, pageSize = 25, refreshKey, onChanged, toast } = props;
   const [filter, setFilter] = useState<Filter>(props.initialFilter ?? "all");
-  const [sort, setSort] = useState<Sort>("count");
+  const [sort, setSort] = useState<{ by: Sort; dir: Dir }>({ by: "count", dir: "desc" });
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const [data, setData] = useState<{ rows: Sender[]; total: number }>({ rows: [], total: 0 });
@@ -26,14 +29,22 @@ export function SendersTable(props: {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const p = new URLSearchParams({ sort, filter, limit: String(pageSize), offset: String(page * pageSize) });
+    const p = new URLSearchParams({ sort: sort.by, dir: sort.dir, filter, limit: String(pageSize), offset: String(page * pageSize) });
     if (accountId) p.set("account", accountId);
     if (q) p.set("q", q);
+    rangeParams(p, range);
     setData(await api(`/api/senders?${p}`));
-  }, [accountId, sort, filter, q, page, pageSize]);
+  }, [accountId, range, sort, filter, q, page, pageSize]);
 
   useEffect(() => { load().catch((e) => toast(e.message, "err")); }, [load, refreshKey, toast]);
-  useEffect(() => { setPage(0); setSelected(new Set()); }, [accountId, filter, sort, q]);
+  useEffect(() => { setPage(0); setSelected(new Set()); }, [accountId, range, filter, sort, q]);
+
+  // Click a column: sort by it (text columns start A→Z, numbers largest first); click again to flip.
+  const sortBy = (by: Sort) =>
+    setSort((s) => (s.by === by ? { by, dir: s.dir === "asc" ? "desc" : "asc" } : { by, dir: by === "name" || by === "account" ? "asc" : "desc" }));
+  const th = (by: Sort, label: string, align: "left" | "right" = "left") => (
+    <SortHeader label={label} active={sort.by === by} dir={sort.dir} align={align} onClick={() => sortBy(by)} />
+  );
 
   const toggle = (email: string) =>
     setSelected((s) => { const n = new Set(s); if (n.has(email)) n.delete(email); else n.add(email); return n; });
@@ -54,7 +65,7 @@ export function SendersTable(props: {
     setBusy(action);
     try {
       const r = await api<{ count: number; errors: string[] }>("/api/clean", {
-        method: "POST", json: { senders: emails, action, accountId: accountId || undefined },
+        method: "POST", json: { senders: emails, action, accountId: accountId || undefined, from: range.from, to: range.to },
       });
       toast(`${action === "trash" ? "Trashed" : "Archived"} ${fmtNum(r.count)} emails` + (r.errors.length ? ` — ${r.errors.join("; ")}` : ""),
         r.errors.length ? "err" : "ok");
@@ -100,13 +111,6 @@ export function SendersTable(props: {
               {f === "all" ? "All senders" : f === "newsletters" ? "Newsletters" : "Mostly unread"}
             </button>
           ))}
-          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)}
-            className="ml-auto h-9 rounded-lg border border-line bg-card px-2 text-sm">
-            <option value="count">Most emails</option>
-            <option value="bytes">Most storage</option>
-            <option value="unread">Most unread</option>
-            <option value="last">Most recent</option>
-          </select>
         </div>
       )}
 
@@ -130,12 +134,12 @@ export function SendersTable(props: {
           <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-subtle">
             <tr>
               <th className="w-10 px-3 py-2.5"><input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all" /></th>
-              <th className="px-2 py-2.5">Sender</th>
-              <th className="px-2 py-2.5">Account</th>
-              <th className="px-2 py-2.5 text-right">Emails</th>
-              <th className="px-2 py-2.5 text-right">Size</th>
-              <th className="px-2 py-2.5 text-right">Unread</th>
-              {!compact && <th className="px-2 py-2.5">Last</th>}
+              {th("name", "Sender")}
+              {th("account", "Account")}
+              {th("count", "Emails", "right")}
+              {th("bytes", "Size", "right")}
+              {th("unread", "Unread", "right")}
+              {!compact && th("last", "Last")}
               <th className="px-3 py-2.5 text-right">Actions</th>
             </tr>
           </thead>
@@ -239,6 +243,24 @@ export function AccountChip({ share, showCount = true, sender, toast }: {
       className={`${cls} hover:border-accent hover:text-accent`}>
       {body}
     </a>
+  );
+}
+
+function SortHeader({ label, active, dir, align, onClick }: {
+  label: string; active: boolean; dir: Dir; align: "left" | "right"; onClick: () => void;
+}) {
+  return (
+    <th className={`px-2 py-2.5 ${align === "right" ? "text-right" : ""}`}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" onClick={onClick} title={`Sort by ${label.toLowerCase()}`}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-ink ${active ? "text-ink" : ""} ${align === "right" ? "flex-row-reverse" : ""}`}>
+        {label}
+        <svg viewBox="0 0 10 14" className="h-3 w-2.5" aria-hidden>
+          <path d="M5 1 L9 5.5 H1 Z" fill="currentColor" opacity={active && dir === "asc" ? 1 : 0.25} />
+          <path d="M5 13 L9 8.5 H1 Z" fill="currentColor" opacity={active && dir === "desc" ? 1 : 0.25} />
+        </svg>
+      </button>
+    </th>
   );
 }
 

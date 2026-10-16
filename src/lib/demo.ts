@@ -1,0 +1,92 @@
+// Demo mode: sample data for the public web demo (Vercel) and for website screenshots.
+// No real mailboxes are ever contacted in demo mode.
+import crypto from "node:crypto";
+import { db, insertMessages, type MessageMeta } from "./db";
+
+/** True for the hosted web demo: MAILCLEAN_DEMO=1, or any Vercel deployment. */
+export const isDemo = () => process.env.MAILCLEAN_DEMO === "1" || process.env.VERCEL === "1";
+
+export const DEMO_MESSAGE = "This is the live demo with sample data — download MailClean to clean your own inbox.";
+
+// Fictional senders: [name, address, emails/month, avg KB, unread rate, newsletter?]
+const SENDERS: [string, string, number, number, number, boolean][] = [
+  ["ShopKart Deals", "deals@shopkart.example", 34, 70, 0.96, true],
+  ["FoodDash", "offers@fooddash.example", 30, 45, 0.97, true],
+  ["Daily Tech Digest", "digest@techdigest.example", 30, 35, 0.92, true],
+  ["StyleHub", "hello@stylehub.example", 22, 85, 0.98, true],
+  ["JobLink", "notifications@joblink.example", 24, 55, 0.74, true],
+  ["Morning Read", "crew@morningread.example", 20, 90, 0.55, true],
+  ["TravelNest", "trips@travelnest.example", 12, 140, 0.88, true],
+  ["StreamBox", "news@streambox.example", 6, 160, 0.7, true],
+  ["CityCabs", "receipts@citycabs.example", 10, 60, 0.6, false],
+  ["Q&A Weekly", "digest@qaweekly.example", 26, 40, 0.99, true],
+  ["PayWallet", "alerts@paywallet.example", 14, 35, 0.9, true],
+  ["LearnPath", "courses@learnpath.example", 9, 110, 0.95, true],
+  ["DesignBoard", "team@designboard.example", 7, 120, 0.94, true],
+  ["CodeHost", "notifications@codehost.example", 38, 12, 0.3, false],
+  ["Northwind Bank", "alerts@northwindbank.example", 16, 25, 0.2, false],
+  ["CloudDeploy", "noreply@clouddeploy.example", 12, 18, 0.5, false],
+  ["Priya Sharma", "priya@studio.example", 14, 320, 0.05, false],
+  ["Rahul Verma", "rahul@client.example", 10, 450, 0.1, false],
+  ["Finance Team", "accounts@company.example", 8, 600, 0.1, false],
+  ["ChatSpace", "feedback@chatspace.example", 9, 30, 0.75, false],
+  ["NoteNest", "updates@notenest.example", 5, 60, 0.85, true],
+  ["RailBook", "tickets@railbook.example", 2, 200, 0.1, false],
+  ["Fitness Club", "news@fitclub.example", 11, 75, 0.93, true],
+  ["GreenGrocer", "basket@greengrocer.example", 15, 50, 0.9, true],
+];
+
+const ACCOUNTS = [
+  { provider: "gmail", email: "you@example.com", share: 0.65 },
+  { provider: "yahoo", email: "you@example.org", share: 0.35 },
+];
+
+// Deterministic pseudo-random numbers so the demo looks the same every time.
+function rng(seed: number) {
+  return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+}
+
+/** Replaces all data with the sample mailboxes. */
+export function seedDemo() {
+  const d = db();
+  d.exec("DELETE FROM accounts; DELETE FROM messages; DELETE FROM unsubscribed;");
+  const rand = rng(42);
+  const now = Date.now();
+  const months = 30; // spread over ~2.5 years so the year filter is useful
+
+  for (const acc of ACCOUNTS) {
+    const id = crypto.randomUUID();
+    d.prepare(`INSERT INTO accounts (id, provider, email, sync_status, synced, total, last_sync_at, created_at)
+      VALUES (?, ?, ?, 'done', 0, 0, ?, ?)`).run(id, acc.provider, acc.email, now, now);
+
+    const rows: MessageMeta[] = [];
+    let n = 0;
+    for (const [name, email, perMonth, kb, unreadRate, newsletter] of SENDERS) {
+      const count = Math.round(perMonth * months * acc.share * (0.5 + rand() * 0.9));
+      for (let i = 0; i < count; i++) {
+        rows.push({
+          msg_id: `demo-${acc.provider}-${n++}`,
+          from_email: email,
+          from_name: name,
+          date: now - Math.floor(rand() ** 0.8 * months * 30.4 * 86_400_000),
+          size: Math.round(kb * 1024 * (0.5 + rand())),
+          unread: rand() < unreadRate,
+          in_inbox: rand() < 0.85,
+          unsub_http: newsletter ? `https://${email.split("@")[1]}/unsubscribe` : null,
+          unsub_mailto: null,
+          one_click: newsletter,
+        });
+      }
+    }
+    insertMessages(id, rows);
+    d.prepare("UPDATE accounts SET synced = ?, total = ? WHERE id = ?").run(rows.length, rows.length, id);
+  }
+  d.prepare("INSERT OR REPLACE INTO kv (k, v) VALUES ('demo_seeded_at', ?)").run(String(now));
+}
+
+/** In demo mode, (re)seed when empty or older than 30 minutes, so visitors' clean-ups don't pile up. */
+export function ensureDemo() {
+  if (!isDemo()) return;
+  const row = db().prepare("SELECT v FROM kv WHERE k = 'demo_seeded_at'").get() as { v: string } | undefined;
+  if (!row || Date.now() - Number(row.v) > 30 * 60_000) seedDemo();
+}

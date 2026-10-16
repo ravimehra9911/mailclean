@@ -6,7 +6,8 @@ import type { ImapProviderId } from "./catalog";
 // Loaded via getBuiltinModule so the bundler leaves Node's built-in SQLite alone.
 const { DatabaseSync } = process.getBuiltinModule("node:sqlite") as typeof import("node:sqlite");
 
-export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
+// On Vercel only /tmp is writable (used by the web demo).
+export const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? "/tmp/mailclean" : path.join(process.cwd(), ".data"));
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS accounts (
@@ -43,6 +44,11 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_from ON messages(from_email);
 CREATE INDEX IF NOT EXISTS idx_messages_date ON messages(date);
 
+CREATE TABLE IF NOT EXISTS kv (
+  k TEXT PRIMARY KEY,
+  v TEXT
+);
+
 CREATE TABLE IF NOT EXISTS unsubscribed (
   from_email TEXT PRIMARY KEY,
   method     TEXT NOT NULL,              -- 'one-click' | 'link' | 'mailto'
@@ -55,7 +61,10 @@ const g = globalThis as unknown as { __mailcleanDb?: DatabaseSyncType };
 export function db(): DatabaseSyncType {
   if (!g.__mailcleanDb) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
-    const d = new DatabaseSync(path.join(DATA_DIR, "mailclean.db"));
+    // The web demo (MAILCLEAN_DEMO / Vercel) wipes and reseeds its data, so it gets its own file and can
+    // never touch a real mailclean.db even if pointed at the same folder.
+    const demo = process.env.MAILCLEAN_DEMO === "1" || process.env.VERCEL === "1";
+    const d = new DatabaseSync(path.join(DATA_DIR, demo ? "demo.db" : "mailclean.db"));
     d.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
     d.exec(SCHEMA);
     // Migrations for databases created by earlier versions.

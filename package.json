@@ -11,7 +11,10 @@
     "desktop:mac": "npm run desktop:prepare && electron-builder --mac",
     "desktop:win": "npm run desktop:prepare && electron-builder --win",
     "desktop:build": "npm run desktop:prepare && electron-builder --mac --win",
-    "desktop:icon": "electron scripts/make-icon.cjs"
+    "desktop:icon": "electron scripts/make-icon.cjs",
+    "desktop:linux": "npm run desktop:prepare && electron-builder --linux",
+    "desktop:all": "npm run desktop:prepare && electron-builder --mac --win --linux",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "imapflow": "^1.0.191",
@@ -60,7 +63,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "artifactName": "MailClean-mac-${arch}.${ext}"
     },
     "dmg": {
       "title": "MailClean ${version}"
@@ -74,7 +78,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "artifactName": "MailClean-windows-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -82,6 +87,31 @@
       "shortcutName": "MailClean"
     },
     "afterPack": "scripts/after-pack.cjs",
-    "npmRebuild": false
+    "npmRebuild": false,
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Office",
+      "artifactName": "MailClean-linux-x86_64.${ext}",
+      "synopsis": "Clean up every inbox in one place",
+      "maintainer": "ravimehra9911 <https://github.com/ravimehra9911>"
+    }
+  },
+  "license": "MIT",
+  "author": "Ravi Mehra (https://github.com/ravimehra9911)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ravimehra9911/mailclean.git"
+  },
+  "homepage": "https://github.com/ravimehra9911/mailclean",
+  "engines": {
+    "node": ">=22.13"
   }
 }

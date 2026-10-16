@@ -16,6 +16,13 @@ function safeEqual(a: string, b: string) {
 }
 
 export function middleware(req: NextRequest) {
+  // Hosted website + demo (Vercel): "/" shows the landing page; the demo dashboard is at "/demo".
+  if (process.env.MAILCLEAN_DEMO === "1" || process.env.VERCEL === "1") {
+    const { pathname } = req.nextUrl;
+    if (pathname === "/") return NextResponse.rewrite(new URL("/site", req.url));
+    return NextResponse.next();
+  }
+
   const token = process.env.MAILCLEAN_TOKEN;
   if (!token) return NextResponse.next();
 

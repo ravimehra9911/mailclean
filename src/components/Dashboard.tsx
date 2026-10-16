@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { isImapProvider, providerInfo, type ImapProviderId } from "@/lib/catalog";
 import { AddAccount, ProviderIcon } from "./AddAccount";
+import { ALL_TIME, DateFilter, rangeLabel, rangeParams, type DateRange } from "./DateFilter";
+import { ThemeToggle } from "./ThemeToggle";
 import { api, fmtBytes, fmtNum, pct, type Account, type Overview } from "./api";
 import { AccountChip, SendersTable } from "./SendersTable";
 import { VolumeChart } from "./VolumeChart";
@@ -14,8 +16,9 @@ export default function Dashboard() {
   const [tab, setTab] = useState<Tab>("overview");
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [configured, setConfigured] = useState({ google: false, microsoft: false });
-  const [about, setAbout] = useState({ version: "", dataDir: "" });
+  const [about, setAbout] = useState({ version: "", dataDir: "", demo: false });
   const [accountId, setAccountId] = useState("");
+  const [range, setRange] = useState<DateRange>(ALL_TIME);
   const [ov, setOv] = useState<Overview | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [toastState, setToast] = useState<Toast>(null);
@@ -46,10 +49,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (accounts?.length) {
-      const p = accountId ? `?account=${accountId}` : "";
-      api<Overview>(`/api/overview${p}`).then(setOv).catch((e) => toast(e.message, "err"));
+      const p = new URLSearchParams();
+      if (accountId) p.set("account", accountId);
+      rangeParams(p, range);
+      api<Overview>(`/api/overview?${p}`).then(setOv).catch((e) => toast(e.message, "err"));
     }
-  }, [accounts?.length, accountId, refreshKey, toast]);
+  }, [accounts?.length, accountId, range, refreshKey, toast]);
 
   // Refresh when the window regains focus, e.g. after finishing sign-in in the system browser.
   useEffect(() => {
@@ -72,7 +77,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen md:flex">
-      <aside className="border-b border-line bg-card md:sticky md:top-0 md:h-screen md:w-56 md:shrink-0 md:border-r md:border-b-0">
+      <aside className="border-b border-line bg-card md:sticky md:top-0 md:flex md:h-screen md:w-56 md:shrink-0 md:flex-col md:border-r md:border-b-0">
         <div className="flex items-center gap-2 px-5 py-4 text-lg font-semibold">
           <span className="grid size-8 place-items-center rounded-lg bg-accent text-white">✦</span> MailClean
         </div>
@@ -90,11 +95,21 @@ export default function Dashboard() {
             </button>
           ))}
         </nav>
+        <div className="hidden space-y-3 px-4 py-4 md:mt-auto md:block">
+          <ThemeToggle />
+          <DeveloperCredit />
+        </div>
       </aside>
 
       <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 md:px-8">
+        {about.demo && (
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 px-5 py-3 text-sm">
+            <span><b>Live demo</b> with sample data — try the filters, sorting and clean-up. Changes reset every 30 minutes.</span>
+            <a href="/#download" className="ml-auto rounded-lg bg-accent px-3 py-1.5 font-medium text-white hover:opacity-90">Download MailClean</a>
+          </div>
+        )}
         {tab === "about" ? (
-          <About {...about} />
+          <About version={about.version} dataDir={about.dataDir} />
         ) : accounts.length === 0 ? (
           <Welcome configured={configured} onConnected={changed} toast={toast} />
         ) : (
@@ -102,12 +117,16 @@ export default function Dashboard() {
             <header className="mb-6 flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-semibold capitalize">{tab}</h1>
               {tab !== "accounts" && (
-                <select value={accountId} onChange={(e) => setAccountId(e.target.value)}
-                  className="ml-auto h-9 rounded-lg border border-line bg-card px-2 text-sm">
-                  <option value="">All accounts ({accounts.length})</option>
-                  {accounts.map((a) => <option key={a.id} value={a.id}>{providerInfo(a.provider).label} · {a.email}</option>)}
-                </select>
+                <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                  <DateFilter value={range} years={ov?.years ?? []} onChange={setRange} />
+                  <select aria-label="Account" value={accountId} onChange={(e) => setAccountId(e.target.value)}
+                    className="h-9 rounded-lg border border-line bg-card px-2 text-sm">
+                    <option value="">All accounts ({accounts.length})</option>
+                    {accounts.map((a) => <option key={a.id} value={a.id}>{providerInfo(a.provider).label} · {a.email}</option>)}
+                  </select>
+                </div>
               )}
+              <div className="md:hidden"><ThemeToggle /></div>
             </header>
 
             {syncing && tab !== "accounts" && <SyncBanner accounts={accounts} />}
@@ -119,7 +138,7 @@ export default function Dashboard() {
 
             {tab === "overview" && ov && (
               <div className="space-y-6">
-                <Summary ov={ov} onMostlyUnread={() => setTab("senders")} />
+                <Summary ov={ov} period={rangeLabel(range)} onMostlyUnread={() => setTab("senders")} />
                 {!accountId && ov.byAccount.length > 1 && (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {ov.byAccount.map((s) => (
@@ -144,17 +163,17 @@ export default function Dashboard() {
                   <Stat label="Unread" value={pct(ov.emails ? ov.unread / ov.emails : 0)} sub={`${fmtNum(ov.unread)} emails`} />
                   <Stat label="Newsletters" value={fmtNum(ov.newsletters)} sub={`of ${fmtNum(ov.senders)} senders`} />
                 </div>
-                <Card title="Emails received" sub="per week, last 6 months">
+                <Card title="Emails received" sub={`per week, ${rangeLabel(range) ?? "last 6 months"}`}>
                   <VolumeChart daily={ov.daily} />
                 </Card>
                 <Card title="Top senders" sub="who fills your inbox" action={<button onClick={() => setTab("senders")} className="text-sm text-accent">View all →</button>}>
-                  <SendersTable accountId={accountId} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} />
+                  <SendersTable accountId={accountId} range={range} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} />
                 </Card>
               </div>
             )}
-            {tab === "senders" && <SendersTable accountId={accountId} refreshKey={refreshKey} onChanged={changed} toast={toast} />}
+            {tab === "senders" && <SendersTable accountId={accountId} range={range} refreshKey={refreshKey} onChanged={changed} toast={toast} />}
             {tab === "newsletters" && (
-              <SendersTable key="nl" accountId={accountId} initialFilter="newsletters" refreshKey={refreshKey} onChanged={changed} toast={toast} />
+              <SendersTable key="nl" accountId={accountId} range={range} initialFilter="newsletters" refreshKey={refreshKey} onChanged={changed} toast={toast} />
             )}
             {tab === "accounts" && <Accounts accounts={accounts} configured={configured} reload={changed} toast={toast} />}
           </>
@@ -170,9 +189,10 @@ export default function Dashboard() {
   );
 }
 
-function Summary({ ov, onMostlyUnread }: { ov: Overview; onMostlyUnread: () => void }) {
+function Summary({ ov, period, onMostlyUnread }: { ov: Overview; period: string | null; onMostlyUnread: () => void }) {
   return (
     <div className="rounded-xl border border-line bg-card px-5 py-4 text-sm leading-relaxed">
+      {period && <span className="mr-1 rounded-md bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent">{period}</span>}
       <b>{fmtNum(ov.emails)} emails</b> · ~{fmtBytes(ov.bytes)} · <b>{pct(ov.emails ? ov.unread / ov.emails : 0)} unread</b>
       {" · "}your top 10 senders are <b>{pct(ov.top10Share)}</b> of your mail
       {ov.mostlyUnreadSenders > 0 && <>{" · "}<button onClick={onMostlyUnread} className="font-medium text-danger underline-offset-2 hover:underline">
@@ -326,5 +346,17 @@ function About({ version, dataDir }: { version: string; dataDir: string }) {
       </section>
       <p className="text-xs text-subtle">MailClean {version}</p>
     </div>
+  );
+}
+
+function DeveloperCredit() {
+  return (
+    <a href="https://github.com/ravimehra9911" target="_blank" rel="noopener noreferrer"
+      className="flex items-center gap-2 text-xs text-subtle hover:text-ink">
+      <svg viewBox="0 0 16 16" className="size-4" fill="currentColor" aria-hidden>
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+      </svg>
+      <span>Built by <b className="font-medium">@ravimehra9911</b></span>
+    </a>
   );
 }

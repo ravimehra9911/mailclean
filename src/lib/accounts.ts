@@ -4,6 +4,7 @@ import { decrypt, encrypt } from "./crypto";
 import { google } from "./providers/google";
 import { microsoft } from "./providers/microsoft";
 import { IMAP_PROVIDERS, isImapProvider, type ImapProviderId } from "./catalog";
+import { isDemo } from "./demo";
 import { imapArchive, imapSync, imapTrash, type ImapConfig } from "./providers/imap";
 import type { MailProvider } from "./providers/types";
 
@@ -94,7 +95,7 @@ const running = ((globalThis as { __mailcleanSyncs?: Set<string> }).__mailcleanS
 /** Starts a background sync. Returns false if one is already running. */
 export function startSync(id: string): boolean {
   const a = getAccount(id);
-  if (!a || running.has(id)) return false;
+  if (!a || running.has(id) || isDemo()) return false;
   running.add(id);
   updateAccount(id, { sync_status: "syncing", sync_error: null, synced: 0 });
   runSync(a).finally(() => running.delete(id));
@@ -150,6 +151,7 @@ async function runSync(a: AccountRow) {
 
 /** Trash or archive messages at the provider. */
 export async function moveMessages(a: AccountRow, ids: string[], action: "trash" | "archive") {
+  if (isDemo()) return; // sample data only; the caller updates the local copy
   if (isImap(a.provider)) {
     const fn = action === "trash" ? imapTrash : imapArchive;
     await fn(imapConfig(a), ids);

@@ -1,8 +1,22 @@
 # MailClean
 
-A desktop app (macOS and Windows) that connects Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox,
-shows which senders fill every inbox, unsubscribes from newsletters and trashes or archives thousands of
-emails per sender in one click.
+**Clean up every inbox in one place.** A free, open-source desktop app for **macOS, Windows and Linux** that
+connects Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox, shows which senders fill every inbox,
+unsubscribes from newsletters and trashes or archives thousands of emails per sender in one click.
+
+[Download](https://github.com/ravimehra9911/mailclean/releases/latest) ·
+[Website & live demo](#website-and-web-demo) ·
+[MIT license](LICENSE) ·
+built by [@ravimehra9911](https://github.com/ravimehra9911)
+
+![MailClean overview](public/screenshots/overview-dark.png)
+
+| Senders, sortable by any column | Connect with an app password |
+|---|---|
+| ![Senders](public/screenshots/senders-light.png) | ![Add account](public/screenshots/add-account-light.png) |
+
+Features: sender report by count, size and unread rate · bulk Trash/Archive · one-click unsubscribe ·
+filter by year or custom dates · sort by any column · light and dark mode · several accounts at once.
 
 **Privacy:** everything runs and stays on the user's device; there is no MailClean server or account.
 Only metadata is stored (sender, date, size, read/inbox status, unsubscribe link); subjects and bodies are
@@ -48,9 +62,13 @@ npm run desktop:dev    # Electron window around the dev server (start `npm run d
 ## Build the desktop app
 
 ```bash
-npm run desktop:mac    # dist-desktop/MailClean-<version>-arm64.dmg (Apple Silicon) and MailClean-<version>.dmg (Intel)
-npm run desktop:win    # dist-desktop/MailClean Setup <version>.exe (x64)
+npm run desktop:mac    # dist-desktop/MailClean-mac-arm64.dmg (Apple Silicon) and MailClean-mac-x64.dmg (Intel)
+npm run desktop:win    # dist-desktop/MailClean-windows-x64.exe
+npm run desktop:linux  # dist-desktop/MailClean-linux-x86_64.AppImage
 ```
+
+File names carry no version, so `releases/latest/download/<file>` links on the website always point at
+the newest GitHub release. Upload the four files to a release named after `electron/package.json`'s version.
 
 The version comes from `electron/package.json`. App data lives in `~/Library/Application Support/MailClean`
 (macOS) or `%APPDATA%\MailClean` (Windows); server logs are in its `logs/` folder.
@@ -63,6 +81,22 @@ The version comes from `electron/package.json`. App data lives in `~/Library/App
   - Windows: an OV/EV code-signing certificate (`WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD`) or Azure Trusted Signing.
 - **App ID and name** are in the `build` section of `package.json` (`appId: app.mailclean.desktop`).
 - Bump `version` in `electron/package.json` for each release.
+
+## Website and web demo
+
+The same Next.js app is the public website when deployed to Vercel (or run with `MAILCLEAN_DEMO=1`):
+
+- `/` is the landing page (`src/app/site/page.tsx`): features, screenshots, downloads, FAQ.
+- `/demo` is the dashboard with sample data (`src/lib/demo.ts`). It reseeds every 30 minutes, uses its own
+  `demo.db`, and refuses to connect real mailboxes — those are only cleaned in the desktop app.
+
+```bash
+MAILCLEAN_DEMO=1 npm run dev                         # website + demo locally
+npm run desktop:prepare && npm run screenshots       # regenerate public/screenshots from the demo
+```
+
+Deploy: import the GitHub repo in Vercel (framework: Next.js, no environment variables needed) or run
+`npx vercel --prod`. Vercel sets `VERCEL=1`, which switches on demo mode.
 
 ## Security model
 

@@ -2,17 +2,23 @@ import dns from "node:dns/promises";
 import net from "node:net";
 import { db, getAccount } from "./db";
 import { moveMessages } from "./accounts";
+import { scopeSql, type Scope } from "./stats";
+import { isDemo } from "./demo";
 
 export type CleanAction = "trash" | "archive";
 
-/** Trash or archive every stored message from the given senders, optionally limited to one account. */
-export async function cleanSenders(senders: string[], action: CleanAction, accountId?: string) {
+/**
+ * Trash or archive the stored messages from the given senders within a scope
+ * (optionally one account and a date range — the same view the user is looking at).
+ */
+export async function cleanSenders(senders: string[], action: CleanAction, scope: Scope = {}) {
   if (!senders.length) return { count: 0, errors: [] as string[] };
   const marks = senders.map(() => "?").join(",");
+  const { conds, args } = scopeSql(scope);
   const rows = db().prepare(
-    `SELECT account_id, msg_id FROM messages WHERE from_email IN (${marks})
-     ${action === "archive" ? "AND in_inbox = 1" : ""} ${accountId ? "AND account_id = ?" : ""}`,
-  ).all(...senders, ...(accountId ? [accountId] : [])) as { account_id: string; msg_id: string }[];
+    `SELECT m.account_id, m.msg_id FROM messages m WHERE m.from_email IN (${marks})
+     ${action === "archive" ? "AND m.in_inbox = 1" : ""} ${conds.map((c) => `AND ${c}`).join(" ")}`,
+  ).all(...senders, ...args) as { account_id: string; msg_id: string }[];
 
   const byAccount = new Map<string, string[]>();
   for (const r of rows) byAccount.set(r.account_id, [...(byAccount.get(r.account_id) ?? []), r.msg_id]);
@@ -72,6 +78,10 @@ export async function unsubscribe(sender: string): Promise<
       mark("one-click");
       return { status: "done" };
     }
+  }
+  if (isDemo()) {
+    mark("one-click");
+    return { status: "done" };
   }
   const url = row.unsub_http ?? row.unsub_mailto!;
   mark(row.unsub_http ? "link" : "mailto");

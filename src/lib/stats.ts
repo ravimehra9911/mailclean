@@ -10,6 +10,8 @@ export interface Overview {
   newsletters: number;
   daily: { day: string; count: number }[];
   byAccount: AccountShare[];
+  /** Years that have mail (for the date filter), newest first. */
+  years: number[];
 }
 
 export interface AccountShare {
@@ -36,28 +38,59 @@ export interface SenderRow {
   unsubscribed: number;
 }
 
-const where = (accountId?: string) => (accountId ? "WHERE m.account_id = ?" : "");
-const args = (accountId?: string) => (accountId ? [accountId] : []);
+/** Which messages a query covers: one account or all, and an optional date range (epoch ms, `to` exclusive). */
+export interface Scope {
+  accountId?: string;
+  from?: number;
+  to?: number;
+}
 
-export function overview(accountId?: string, days = 180): Overview {
+/** SQL conditions on `messages m` for a scope, with their parameters. */
+export function scopeSql(s: Scope, alias = "m"): { conds: string[]; args: (string | number)[] } {
+  const conds: string[] = [];
+  const args: (string | number)[] = [];
+  if (s.accountId) { conds.push(`${alias}.account_id = ?`); args.push(s.accountId); }
+  if (s.from !== undefined) { conds.push(`${alias}.date >= ?`); args.push(s.from); }
+  if (s.to !== undefined) { conds.push(`${alias}.date < ?`); args.push(s.to); }
+  return { conds, args };
+}
+
+const whereOf = (conds: string[], extra: string[] = []) => {
+  const all = [...conds, ...extra];
+  return all.length ? `WHERE ${all.join(" AND ")}` : "";
+};
+
+export function overview(scope: Scope): Overview {
   const d = db();
-  const w = where(accountId);
-  const a = args(accountId);
+  const { conds, args } = scopeSql(scope);
+  const w = whereOf(conds);
   const totals = d.prepare(`SELECT COUNT(*) emails, COALESCE(SUM(size),0) bytes, COALESCE(SUM(unread),0) unread,
-    COUNT(DISTINCT from_email) senders FROM messages m ${w}`).get(...a) as { emails: number; bytes: number; unread: number; senders: number };
+    COUNT(DISTINCT from_email) senders FROM messages m ${w}`).get(...args) as { emails: number; bytes: number; unread: number; senders: number };
   const top10 = d.prepare(`SELECT COALESCE(SUM(c),0) n FROM (SELECT COUNT(*) c FROM messages m ${w}
-    GROUP BY from_email ORDER BY c DESC LIMIT 10)`).get(...a) as { n: number };
+    GROUP BY from_email ORDER BY c DESC LIMIT 10)`).get(...args) as { n: number };
   const mostlyUnread = d.prepare(`SELECT COUNT(*) n FROM (SELECT COUNT(*) c, SUM(unread) u FROM messages m ${w}
-    GROUP BY from_email HAVING c >= 10 AND u * 1.0 / c >= 0.9)`).get(...a) as { n: number };
+    GROUP BY from_email HAVING c >= 10 AND u * 1.0 / c >= 0.9)`).get(...args) as { n: number };
   const newsletters = d.prepare(`SELECT COUNT(DISTINCT from_email) n FROM messages m
-    ${w ? w + " AND" : "WHERE"} (unsub_http IS NOT NULL OR unsub_mailto IS NOT NULL)`).get(...a) as { n: number };
-  const since = Date.now() - days * 86_400_000;
-  const daily = d.prepare(`SELECT strftime('%Y-%m-%d', date / 1000, 'unixepoch') day, COUNT(*) count FROM messages m
-    ${w ? w + " AND" : "WHERE"} date >= ? GROUP BY day ORDER BY day`).all(...a, since) as { day: string; count: number }[];
+    ${whereOf(conds, ["(unsub_http IS NOT NULL OR unsub_mailto IS NOT NULL)"])}`).get(...args) as { n: number };
+
+  // Chart: the selected range, or the last 6 months when no range is set.
+  const chartFrom = scope.from ?? Date.now() - 180 * 86_400_000;
+  const chart = scopeSql({ ...scope, from: chartFrom });
+  const daily = d.prepare(`SELECT strftime('%Y-%m-%d', date / 1000, 'unixepoch', 'localtime') day, COUNT(*) count FROM messages m
+    ${whereOf(chart.conds)} GROUP BY day ORDER BY day`).all(...chart.args) as { day: string; count: number }[];
+
+  // Per-account totals: date conditions go in the JOIN so accounts with no mail in range still show.
+  const dates = scopeSql({ from: scope.from, to: scope.to });
   const byAccount = d.prepare(`SELECT acc.id account_id, acc.provider, acc.email, COUNT(m.msg_id) count,
     COALESCE(SUM(m.size),0) bytes, COALESCE(SUM(m.unread),0) unread
-    FROM accounts acc LEFT JOIN messages m ON m.account_id = acc.id
-    ${accountId ? "WHERE acc.id = ?" : ""} GROUP BY acc.id ORDER BY count DESC`).all(...a) as unknown as AccountShare[];
+    FROM accounts acc LEFT JOIN messages m ON m.account_id = acc.id ${dates.conds.map((c) => `AND ${c}`).join(" ")}
+    ${scope.accountId ? "WHERE acc.id = ?" : ""} GROUP BY acc.id ORDER BY count DESC`)
+    .all(...dates.args, ...(scope.accountId ? [scope.accountId] : [])) as unknown as AccountShare[];
+
+  const acc = scopeSql({ accountId: scope.accountId });
+  const years = (d.prepare(`SELECT DISTINCT CAST(strftime('%Y', date / 1000, 'unixepoch', 'localtime') AS INTEGER) y
+    FROM messages m ${whereOf(acc.conds)} ORDER BY y DESC`).all(...acc.args) as { y: number }[]).map((r) => r.y)
+    .filter((y) => y >= 1995); // emails with missing dates show up as 1970
 
   return {
     emails: totals.emails,
@@ -69,49 +102,71 @@ export function overview(accountId?: string, days = 180): Overview {
     newsletters: newsletters.n,
     daily,
     byAccount,
+    years,
   };
 }
 
-export type SenderSort = "count" | "bytes" | "unread" | "last";
+export type SenderSort = "name" | "account" | "count" | "bytes" | "unread" | "last";
+export type SortDir = "asc" | "desc";
 export type SenderFilter = "all" | "newsletters" | "mostly-unread";
 
-export function senders(opts: {
-  accountId?: string; sort?: SenderSort; filter?: SenderFilter; q?: string; limit?: number; offset?: number;
+// Whitelisted ORDER BY expressions; the direction is appended, with a stable tie-breaker.
+const SORT_SQL: Record<SenderSort, string> = {
+  name: "LOWER(COALESCE(name, email))",
+  account: "LOWER(first_account)",
+  count: "count",
+  bytes: "bytes",
+  unread: "unread * 1.0 / count",
+  last: "last",
+};
+
+export function senders(opts: Scope & {
+  sort?: SenderSort; dir?: SortDir; filter?: SenderFilter; q?: string; limit?: number; offset?: number;
 }): { rows: SenderRow[]; total: number } {
-  const { accountId, sort = "count", filter = "all", q, limit = 25, offset = 0 } = opts;
-  const conds: string[] = [];
-  const a: (string | number)[] = [];
-  if (accountId) { conds.push("m.account_id = ?"); a.push(accountId); }
-  if (q) { conds.push("(m.from_email LIKE ? OR m.from_name LIKE ?)"); a.push(`%${q}%`, `%${q}%`); }
+  const { sort = "count", filter = "all", q, limit = 25, offset = 0 } = opts;
+  const dir = opts.dir === "asc" ? "ASC" : "DESC";
+  const { conds, args } = scopeSql(opts);
+  if (q) { conds.push("(m.from_email LIKE ? OR m.from_name LIKE ?)"); args.push(`%${q}%`, `%${q}%`); }
   const having =
     filter === "newsletters" ? "HAVING can_unsub > 0"
     : filter === "mostly-unread" ? "HAVING count >= 10 AND unread * 1.0 / count >= 0.9"
     : "";
-  const order = { count: "count DESC", bytes: "bytes DESC", unread: "unread * 1.0 / count DESC, count DESC", last: "last DESC" }[sort];
+  const order = `${SORT_SQL[sort] ?? SORT_SQL.count} ${dir}, count DESC, email ASC`;
 
   const base = `SELECT m.from_email email, MAX(m.from_name) name, COUNT(*) count, SUM(m.size) bytes, SUM(m.unread) unread,
       SUM(m.in_inbox) inbox, MIN(m.date) first, MAX(m.date) last, GROUP_CONCAT(DISTINCT acc.email) accounts,
+      MIN(acc.email) first_account,
       SUM(CASE WHEN m.unsub_http IS NOT NULL OR m.unsub_mailto IS NOT NULL THEN 1 ELSE 0 END) can_unsub,
       MAX(CASE WHEN u.from_email IS NOT NULL THEN 1 ELSE 0 END) unsubscribed
     FROM messages m JOIN accounts acc ON acc.id = m.account_id LEFT JOIN unsubscribed u ON u.from_email = m.from_email
-    ${conds.length ? "WHERE " + conds.join(" AND ") : ""} GROUP BY m.from_email ${having}`;
+    ${whereOf(conds)} GROUP BY m.from_email ${having}`;
 
   const d = db();
-  const total = (d.prepare(`SELECT COUNT(*) n FROM (${base})`).get(...a) as { n: number }).n;
-  const rows = d.prepare(`${base} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...a, limit, offset) as unknown as SenderRow[];
+  const total = (d.prepare(`SELECT COUNT(*) n FROM (${base})`).get(...args) as { n: number }).n;
+  const rows = d.prepare(`${base} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...args, limit, offset) as unknown as SenderRow[];
 
-  // Per-account counts for the senders on this page.
+  // Per-account counts for the senders on this page (same scope).
   for (const r of rows) r.byAccount = [];
   if (rows.length) {
+    const s = scopeSql(opts);
     const marks = rows.map(() => "?").join(",");
     const split = d.prepare(`SELECT m.from_email, acc.id account_id, acc.provider, acc.email, COUNT(*) count,
         SUM(m.size) bytes, SUM(m.unread) unread
       FROM messages m JOIN accounts acc ON acc.id = m.account_id
-      WHERE m.from_email IN (${marks}) ${accountId ? "AND m.account_id = ?" : ""}
+      ${whereOf(s.conds, [`m.from_email IN (${marks})`])}
       GROUP BY m.from_email, acc.id ORDER BY count DESC`)
-      .all(...rows.map((r) => r.email), ...(accountId ? [accountId] : [])) as unknown as (AccountShare & { from_email: string })[];
+      .all(...s.args, ...rows.map((r) => r.email)) as unknown as (AccountShare & { from_email: string })[];
     const byEmail = new Map(rows.map((r) => [r.email, r]));
-    for (const { from_email, ...s } of split) byEmail.get(from_email)?.byAccount.push(s);
+    for (const { from_email, ...sh } of split) byEmail.get(from_email)?.byAccount.push(sh);
   }
   return { rows, total };
+}
+
+/** Parses `account`, `from` and `to` query parameters into a Scope. */
+export function scopeFromParams(p: URLSearchParams): Scope {
+  const num = (k: string) => {
+    const v = Number(p.get(k));
+    return p.get(k) && Number.isFinite(v) ? v : undefined;
+  };
+  return { accountId: p.get("account") || undefined, from: num("from"), to: num("to") };
 }

@@ -10,10 +10,26 @@
   --accent: #5b5bd6;
   --danger: #dc3545;
   --ok: #18864b;
+  color-scheme: light;
+}
+
+/* Dark palette: chosen explicitly (data-theme="dark") or by the OS when no choice is saved. */
+:root[data-theme="dark"] {
+  --bg: #0e1013;
+  --card: #16191e;
+  --ink: #e9ebef;
+  --subtle: #959caa;
+  --line: #262a31;
+  --muted: #1d2127;
+  --accent: #7c7cf0;
+  --danger: #f0525f;
+  --ok: #3ccf7e;
+  color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #0e1013;
     --card: #16191e;
     --ink: #e9ebef;
