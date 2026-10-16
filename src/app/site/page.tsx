@@ -9,15 +9,23 @@ const GITHUB_USER = "https://github.com/ravimehra9911";
 const dl = (file: string) => `${REPO}/releases/latest/download/${file}`;
 const VERSION = process.env.MAILCLEAN_VERSION ?? "";
 
+// Public address, so link previews (LinkedIn, X, Slack…) get an absolute image URL.
+const SITE_URL = process.env.MAILCLEAN_SITE_URL || "https://mailclean-gilt.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "MailClean — clean up every inbox in one place",
   description:
     "Free, open-source desktop app for macOS, Windows and Linux. See which senders fill your Gmail, Yahoo, iCloud and IMAP inboxes, unsubscribe and bulk-delete in one click. Your data never leaves your computer.",
   openGraph: {
     title: "MailClean — clean up every inbox in one place",
     description: "See who fills your inbox, unsubscribe and bulk-delete across Gmail, Yahoo, iCloud and more. Private, local, open source.",
-    images: ["/screenshots/overview-dark.png"],
+    url: SITE_URL,
+    siteName: "MailClean",
+    type: "website",
+    images: [{ url: "/screenshots/overview-dark.png", width: 1440, height: 900, alt: "MailClean overview" }],
   },
+  twitter: { card: "summary_large_image", images: ["/screenshots/overview-dark.png"] },
 };
 
 const DOWNLOADS = [
