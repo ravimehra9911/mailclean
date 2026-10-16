@@ -78,10 +78,22 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen md:flex">
       <aside className="border-b border-line bg-card md:sticky md:top-0 md:flex md:h-screen md:w-56 md:shrink-0 md:flex-col md:border-r md:border-b-0">
-        <div className="flex items-center gap-2 px-5 py-4 text-lg font-semibold">
-          <span className="grid size-8 place-items-center rounded-lg bg-accent text-white">✦</span> MailClean
-        </div>
+        {/* In the web demo the logo leads back to the website. */}
+        {about.demo ? (
+          <a href="/" title="Back to the MailClean website" className="flex items-center gap-2 px-5 py-4 text-lg font-semibold hover:opacity-80">
+            <span className="grid size-8 place-items-center rounded-lg bg-accent text-white">✦</span> MailClean
+          </a>
+        ) : (
+          <div className="flex items-center gap-2 px-5 py-4 text-lg font-semibold">
+            <span className="grid size-8 place-items-center rounded-lg bg-accent text-white">✦</span> MailClean
+          </div>
+        )}
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:pb-0">
+          {about.demo && (
+            <a href="/" className="whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-medium text-accent hover:bg-muted md:mb-2">
+              ← Back to website
+            </a>
+          )}
           {([
             ["overview", "Overview"],
             ["senders", "Senders"],
@@ -105,7 +117,10 @@ export default function Dashboard() {
         {about.demo && (
           <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 px-5 py-3 text-sm">
             <span><b>Live demo</b> with sample data — try the filters, sorting and clean-up. Your changes stay in this browser only.</span>
-            <a href="/#download" className="ml-auto rounded-lg bg-accent px-3 py-1.5 font-medium text-white hover:opacity-90">Download MailClean</a>
+            <div className="flex gap-2 sm:ml-auto">
+              <a href="/" className="rounded-lg border border-line bg-card px-3 py-1.5 font-medium hover:bg-muted">← Website</a>
+              <a href="/#download" className="rounded-lg bg-accent px-3 py-1.5 font-medium text-white hover:opacity-90">Download MailClean</a>
+            </div>
           </div>
         )}
         {tab === "about" ? (
