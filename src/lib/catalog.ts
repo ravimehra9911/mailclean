@@ -126,3 +126,29 @@ export function providerInfo(id: string): { label: string; icon: string; color: 
   if (id === "microsoft") return { label: "Outlook", icon: "O", color: "#0078d4" };
   return { label: id, icon: "@", color: "#6b7280" };
 }
+
+/**
+ * Web-mail link for a sender's emails in one of the user's accounts. `search` is false when the provider has
+ * no search link (the UI then copies the address so the user can paste it into the provider's search).
+ */
+export function mailboxLink(provider: string, account: string, sender: string): { url: string; search: boolean } | null {
+  const q = encodeURIComponent;
+  switch (provider) {
+    case "gmail":
+    case "google":
+      // authuser picks the right Google account when several are signed in.
+      return { url: `https://mail.google.com/mail/?authuser=${q(account)}#search/${q(`from:${sender}`)}`, search: true };
+    case "yahoo":
+      return { url: `https://mail.yahoo.com/d/search/keyword=${q(sender)}`, search: true };
+    case "aol":
+      return { url: `https://mail.aol.com/d/search/keyword=${q(sender)}`, search: true };
+    case "microsoft":
+      return { url: `https://outlook.live.com/mail/0/search?q=${q(`from:${sender}`)}`, search: true };
+    case "icloud":
+      return { url: "https://www.icloud.com/mail/", search: false };
+    case "zoho":
+      return { url: "https://mail.zoho.com/zm/", search: false };
+    default:
+      return null;
+  }
+}

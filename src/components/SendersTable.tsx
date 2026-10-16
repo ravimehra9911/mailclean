@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { providerInfo } from "@/lib/catalog";
+import { mailboxLink, providerInfo } from "@/lib/catalog";
 import { api, fmtBytes, fmtDate, fmtNum, pct, type AccountShare, type Sender } from "./api";
 
 type Filter = "all" | "newsletters" | "mostly-unread";
@@ -150,15 +150,16 @@ export function SendersTable(props: {
                       <Avatar name={r.name || r.email} />
                       <div className="min-w-0">
                         <div className="truncate font-medium">{r.name || r.email}</div>
-                        <div className="truncate text-xs text-subtle">
-                          {r.email}
+                        <div className="flex min-w-0 items-center text-xs text-subtle">
+                          <span className="truncate">{r.email}</span>
+                          <CopyButton text={r.email} toast={toast} />
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-2 py-2.5">
                     <div className="flex flex-col items-start gap-1">
-                      {r.byAccount.map((s) => <AccountChip key={s.account_id} share={s} showCount={r.byAccount.length > 1} />)}
+                      {r.byAccount.map((s) => <AccountChip key={s.account_id} share={s} showCount={r.byAccount.length > 1} sender={r.email} toast={toast} />)}
                     </div>
                   </td>
                   <td className="px-2 py-2.5 text-right tabular-nums font-medium">{fmtNum(r.count)}</td>
@@ -206,16 +207,82 @@ export function SendersTable(props: {
   );
 }
 
-/** Shows which connected inbox an email count belongs to, e.g. "G you@gmail.com · 120". */
-export function AccountChip({ share, showCount = true }: { share: Pick<AccountShare, "provider" | "email"> & { count?: number }; showCount?: boolean }) {
+/**
+ * Shows which connected inbox an email count belongs to, e.g. "G you@gmail.com · 120".
+ * With `sender`, it links to that inbox's web mail, searching for the sender's emails.
+ */
+export function AccountChip({ share, showCount = true, sender, toast }: {
+  share: Pick<AccountShare, "provider" | "email"> & { count?: number };
+  showCount?: boolean;
+  sender?: string;
+  toast?: (msg: string, kind?: "ok" | "err") => void;
+}) {
   const p = providerInfo(share.provider);
-  return (
-    <span title={`${p.label}: ${share.email}`}
-      className="inline-flex max-w-[230px] items-center gap-1.5 rounded-md border border-line px-1.5 py-0.5 text-xs">
+  const link = sender ? mailboxLink(share.provider, share.email, sender) : null;
+  const body = (
+    <>
       <span className="font-bold" style={{ color: p.color }}>{p.icon}</span>
       <span className="truncate">{share.email}</span>
       {showCount && share.count !== undefined && <span className="tabular-nums text-subtle">· {fmtNum(share.count)}</span>}
-    </span>
+      {link && <span aria-hidden className="text-subtle">↗</span>}
+    </>
+  );
+  const cls = "inline-flex max-w-[250px] items-center gap-1.5 rounded-md border border-line px-1.5 py-0.5 text-xs";
+  if (!link || !sender) return <span title={`${p.label}: ${share.email}`} className={cls}>{body}</span>;
+  return (
+    <a href={link.url} target="_blank" rel="noopener noreferrer"
+      title={link.search ? `Open ${p.label} (${share.email}) showing emails from ${sender}` : `Open ${p.label} — the sender's address is copied for search`}
+      onClick={() => {
+        // No search link for this provider: copy the address so it can be pasted into the provider's search box.
+        if (!link.search) copyText(sender).then((ok) => ok && toast?.(`Copied ${sender} — paste it into ${p.label} search`));
+      }}
+      className={`${cls} hover:border-accent hover:text-accent`}>
+      {body}
+    </a>
+  );
+}
+
+/** Copies text, falling back to a hidden textarea where the async Clipboard API is blocked. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  }
+}
+
+function CopyButton({ text, toast }: { text: string; toast: (msg: string, kind?: "ok" | "err") => void }) {
+  const [done, setDone] = useState(false);
+  async function copy() {
+    if (await copyText(text)) {
+      setDone(true);
+      toast(`Copied ${text}`);
+      setTimeout(() => setDone(false), 1500);
+    } else {
+      toast("Could not copy to the clipboard", "err");
+    }
+  }
+  return (
+    <button type="button" onClick={copy} title={`Copy ${text}`} aria-label={`Copy ${text}`}
+      className="ml-1 grid size-5 shrink-0 place-items-center rounded text-subtle opacity-60 hover:bg-muted hover:text-ink hover:opacity-100">
+      {done ? (
+        <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8.5l3 3 7-7" /></svg>
+      ) : (
+        <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" /><path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5" />
+        </svg>
+      )}
+    </button>
   );
 }
 
