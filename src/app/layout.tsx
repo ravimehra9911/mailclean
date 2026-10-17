@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { themeInitScript } from "@/components/ThemeToggle";
+import { SITE_URL } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MailClean",
+  metadataBase: new URL(SITE_URL),
+  title: { default: "MailClean", template: "%s · MailClean" },
   description: "Clean up every inbox in one place",
 };
 

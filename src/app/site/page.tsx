@@ -5,6 +5,8 @@ import { getDownloadCounts, type InstallerKey } from "@/lib/downloads";
 import { HeroVideo } from "@/components/site/HeroVideo";
 import { DownloadCountsProvider, DownloadTotal } from "@/components/site/DownloadCounts";
 import { PROVIDER_LOGOS } from "@/components/site/ProviderLogos";
+import { StructuredData } from "@/components/site/StructuredData";
+import { DESCRIPTION, DEVELOPER, GOOGLE_SITE_VERIFICATION, KEYWORDS, SITE_NAME, SITE_URL, TITLE } from "@/lib/site";
 import { CleanupDemo, CountUp, Downloads, Reveal, ScrollProgress, SpotlightGrid, Tilt } from "@/components/site/Effects";
 
 // Landing page for the hosted website (served at "/" on Vercel; see src/middleware.ts).
@@ -14,23 +16,39 @@ const GITHUB_USER = "https://github.com/ravimehra9911";
 const dl = (file: string) => `${REPO}/releases/latest/download/${file}`;
 const VERSION = process.env.MAILCLEAN_VERSION ?? "";
 
-// Public address, so link previews (LinkedIn, X, Slack…) get an absolute image URL.
-const SITE_URL = process.env.MAILCLEAN_SITE_URL || "https://mailclean-gilt.vercel.app";
-
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "MailClean — clean up every inbox in one place",
-  description:
-    "Free, open-source desktop app for macOS, Windows and Linux. See which senders fill your Gmail, Yahoo, iCloud and IMAP inboxes, unsubscribe and bulk-delete in one click. Your data never leaves your computer.",
-  openGraph: {
-    title: "MailClean — clean up every inbox in one place",
-    description: "See who fills your inbox, unsubscribe and bulk-delete across Gmail, Yahoo, iCloud and more. Private, local, open source.",
-    url: SITE_URL,
-    siteName: "MailClean",
-    type: "website",
-    images: [{ url: "/screenshots/overview-dark.png", width: 1440, height: 900, alt: "MailClean overview" }],
+  title: { absolute: TITLE },
+  description: DESCRIPTION,
+  keywords: KEYWORDS,
+  applicationName: SITE_NAME,
+  authors: [{ name: DEVELOPER.name, url: DEVELOPER.url }],
+  creator: DEVELOPER.name,
+  publisher: DEVELOPER.name,
+  category: "productivity",
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 },
   },
-  twitter: { card: "summary_large_image", images: ["/screenshots/overview-dark.png"] },
+  ...(GOOGLE_SITE_VERIFICATION ? { verification: { google: GOOGLE_SITE_VERIFICATION } } : {}),
+  openGraph: {
+    title: TITLE,
+    description: "See who fills your inbox, bulk-delete and unsubscribe across Gmail, Yahoo, iCloud and more. Free, private, open source — runs on your computer.",
+    url: "/",
+    siteName: SITE_NAME,
+    type: "website",
+    locale: "en_US",
+    images: [{ url: "/screenshots/overview-dark.png", width: 1440, height: 900, alt: "MailClean dashboard showing inbox totals and top senders" }],
+    videos: [{ url: `${SITE_URL}/media/mailclean-demo.mp4`, width: 1920, height: 1080, type: "video/mp4" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: "Free, private inbox cleaner for Gmail, Yahoo & iCloud. Bulk-delete and unsubscribe in one click.",
+    images: ["/screenshots/overview-dark.png"],
+  },
 };
 
 const DOWNLOADS = [
@@ -103,6 +121,7 @@ export default async function SitePage() {
   return (
     <DownloadCountsProvider initial={counts}>
     <div className="min-h-screen overflow-x-clip">
+      <StructuredData faq={FAQ} version={VERSION} />
       <ScrollProgress />
       <Analytics />
       <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
