@@ -138,10 +138,11 @@ export function mailboxLink(provider: string, account: string, sender: string): 
     case "google":
       // authuser picks the right Google account when several are signed in.
       return { url: `https://mail.google.com/mail/?authuser=${q(account)}#search/${q(`from:${sender}`)}`, search: true };
+    // Yahoo and AOL have no documented search link, so open the mailbox; the UI copies the address.
     case "yahoo":
-      return { url: `https://mail.yahoo.com/d/search/keyword=${q(sender)}`, search: true };
+      return { url: "https://mail.yahoo.com/", search: false };
     case "aol":
-      return { url: `https://mail.aol.com/d/search/keyword=${q(sender)}`, search: true };
+      return { url: "https://mail.aol.com/", search: false };
     case "microsoft":
       return { url: `https://outlook.live.com/mail/0/search?q=${q(`from:${sender}`)}`, search: true };
     case "icloud":

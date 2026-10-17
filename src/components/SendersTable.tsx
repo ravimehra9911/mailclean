@@ -195,14 +195,20 @@ export function SendersTable(props: {
                   {!compact && <td className="px-2 py-2.5 text-subtle">{fmtDate(r.last)}</td>}
                   <td className="px-3 py-2.5">
                     <div className="flex justify-end gap-1.5" data-tour={rowIndex === 0 ? "row-actions" : undefined}>
-                      {r.can_unsub > 0 && (r.unsubscribed ? (
+                      {r.unsubscribed ? (
                         <span className="rounded-md px-2 py-1 text-xs text-ok">✓ Unsubscribed</span>
-                      ) : (
+                      ) : r.can_unsub > 0 ? (
                         <button disabled={!!busy} onClick={() => unsub(r.email)}
                           className="rounded-md border border-line px-2 py-1 text-xs hover:bg-muted disabled:opacity-50">
                           {busy === `unsub:${r.email}` ? "…" : "Unsubscribe"}
                         </button>
-                      ))}
+                      ) : (
+                        // Same place in every row; explains why it can't be used.
+                        <span tabIndex={0} title="This sender's emails don't include an unsubscribe link. Use Trash all, or a filter in your mailbox."
+                          className="cursor-help rounded-md border border-dashed border-line px-2 py-1 text-xs text-subtle/70">
+                          Unsubscribe
+                        </span>
+                      )}
                       <button disabled={!!busy} onClick={() => clean([r.email], "trash")}
                         className="rounded-md border border-line px-2 py-1 text-xs text-danger hover:bg-danger/10 disabled:opacity-50">
                         Trash all

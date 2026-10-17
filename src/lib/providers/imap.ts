@@ -13,6 +13,11 @@ export interface ImapConfig {
   label: string;
   /** Server only exposes the newest N messages per folder (Yahoo, AOL). */
   folderCap?: number;
+  /**
+   * Fetch the whole header block instead of only List-Unsubscribe. Yahoo/AOL answer
+   * BODY[HEADER.FIELDS (LIST-UNSUBSCRIBE …)] with an empty result, so unsubscribe links were missed.
+   */
+  fullHeaders?: boolean;
 }
 
 // Folders whose mail we never count or clean.
@@ -86,8 +91,27 @@ function scanPlan(list: ListResponse[]): { folders: ListResponse[]; allMail: boo
 const special = (list: ListResponse[], use: string, fallback: string) =>
   list.find((f) => f.specialUse === use)?.path ?? list.find((f) => f.path.toLowerCase() === fallback.toLowerCase())?.path ?? fallback;
 
-function headerValue(raw: string, name: string) {
-  return raw.match(new RegExp(`^${name}:\\s*([\\s\\S]*?)(?=\\r?\\n\\S|$)`, "im"))?.[1].replace(/\r?\n\s+/g, " ").trim();
+/** Value of a header in a raw header block, including folded continuation lines. */
+export function headerValue(raw: string, name: string) {
+  const m = raw.match(new RegExp(`^${name}:[ \\t]*(.*(?:\\r?\\n[ \\t]+.*)*)`, "im"));
+  return m?.[1].replace(/\r?\n[ \t]+/g, " ").trim();
+}
+
+/** Connects, turning failures into readable errors. */
+async function open(cfg: ImapConfig): Promise<ImapFlow> {
+  const c = client(cfg);
+  try {
+    await c.connect();
+  } catch (e) {
+    throw friendlyError(cfg, e);
+  }
+  return c;
+}
+
+/** Dropped or timed-out connections are worth one more try; login and protocol errors are not. */
+function isConnectionError(e: unknown): boolean {
+  const err = e as { message?: string; code?: string };
+  return /Connection not available|NoConnection|ECONNRESET|EPIPE|ETIMEDOUT|socket|closed|timeout/i.test(`${err.code ?? ""} ${err.message ?? ""}`);
 }
 
 export async function imapSync(
@@ -97,59 +121,97 @@ export async function imapSync(
     onCapped: (folders: string[]) => void;
   },
 ): Promise<boolean> {
-  return withClient(cfg, async (c) => {
+  let c = await open(cfg);
+  const reconnect = async () => {
+    c.close();
+    c = await open(cfg);
+  };
+  // Fetch in batches: Yahoo drops long-running FETCH streams, especially with full headers.
+  const CHUNK = cfg.fullHeaders ? 500 : 2000;
+  try {
     const { folders, allMail } = scanPlan(await c.list());
-    let total = 0;
-    for (const f of folders) total += (await c.status(f.path, { messages: true })).messages ?? 0;
-    hooks.onTotal(Math.min(total, hooks.limit));
+    const sizes = new Map<string, number>();
+    for (const f of folders) sizes.set(f.path, (await c.status(f.path, { messages: true })).messages ?? 0);
+    hooks.onTotal(Math.min([...sizes.values()].reduce((a, b) => a + b, 0), hooks.limit));
 
     let walked = 0;
     const capped: string[] = [];
     for (const f of folders) {
-      if (walked >= hooks.limit) return false;
-      const lock = await c.getMailboxLock(f.path, { readOnly: true });
-      try {
-        const box = c.mailbox;
-        if (!box || !box.exists) continue;
-        const folderIsInbox = isInboxFolder(f);
-        if (cfg.folderCap && box.exists >= cfg.folderCap) capped.push(folderIsInbox ? "Inbox" : f.name || f.path);
-        let batch: MessageMeta[] = [];
-        // One FETCH streams headers for the whole folder — far faster than per-message API calls.
-        for await (const m of c.fetch("1:*", {
-          uid: true, flags: true, size: true, internalDate: true, envelope: true, labels: allMail,
-          headers: ["list-unsubscribe", "list-unsubscribe-post"],
-        })) {
-          const id = makeId(box.uidValidity, m.uid, f.path);
-          const labels = m.labels ?? new Set<string>();
-          // In Gmail's All Mail, skip your own sent mail and drafts unless they are also in the inbox.
-          if (allMail && (labels.has("\\Sent") || labels.has("\\Draft")) && !labels.has("\\Inbox")) continue;
-          hooks.onSeen(id);
-          const raw = m.headers?.toString("utf8") ?? "";
-          const unsub = parseListUnsubscribe(headerValue(raw, "List-Unsubscribe"), headerValue(raw, "List-Unsubscribe-Post"));
-          const from = m.envelope?.from?.[0];
-          batch.push({
-            msg_id: id,
-            from_email: (from?.address ?? "unknown").toLowerCase(),
-            from_name: from?.name || null,
-            date: new Date(m.internalDate ?? m.envelope?.date ?? Date.now()).getTime(),
-            size: m.size ?? 0,
-            unread: !m.flags?.has("\\Seen"),
-            in_inbox: allMail ? labels.has("\\Inbox") : folderIsInbox,
-            unsub_http: unsub.http,
-            unsub_mailto: unsub.mailto,
-            one_click: unsub.oneClick,
-          });
-          if (batch.length >= 500) { hooks.onBatch(batch); batch = []; }
-          if (++walked >= hooks.limit) break;
+      if (!(sizes.get(f.path) ?? 0)) continue;
+      // Use the count visible after opening the folder: Yahoo/AOL report the full size in STATUS
+      // but only expose the newest 10,000 messages once selected.
+      let exists = 0;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const lock = await c.getMailboxLock(f.path, { readOnly: true });
+          try { exists = c.mailbox ? c.mailbox.exists : 0; } finally { lock.release(); }
+          break;
+        } catch (e) {
+          if (attempt >= 3 || !isConnectionError(e)) throw e;
+          await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+          await reconnect();
         }
-        hooks.onBatch(batch);
-      } finally {
-        lock.release();
+      }
+      if (!exists) continue;
+      const folderIsInbox = isInboxFolder(f);
+      if (cfg.folderCap && exists >= cfg.folderCap) capped.push(folderIsInbox ? "Inbox" : f.name || f.path);
+
+      for (let from = 1; from <= exists; from += CHUNK) {
+        if (walked >= hooks.limit) return false;
+        const range = `${from}:${Math.min(exists, from + CHUNK - 1)}`;
+        let rows: MessageMeta[] = [];
+        for (let attempt = 0; ; attempt++) {
+          rows = [];
+          try {
+            const lock = await c.getMailboxLock(f.path, { readOnly: true });
+            try {
+              const box = c.mailbox;
+              if (!box) break;
+              for await (const m of c.fetch(range, {
+                uid: true, flags: true, size: true, internalDate: true, envelope: true, labels: allMail,
+                headers: cfg.fullHeaders ? true : ["list-unsubscribe", "list-unsubscribe-post"],
+              })) {
+                const labels = m.labels ?? new Set<string>();
+                // In Gmail's All Mail, skip your own sent mail and drafts unless they are also in the inbox.
+                if (allMail && (labels.has("\\Sent") || labels.has("\\Draft")) && !labels.has("\\Inbox")) continue;
+                const raw = m.headers?.toString("utf8") ?? "";
+                const unsub = parseListUnsubscribe(headerValue(raw, "List-Unsubscribe"), headerValue(raw, "List-Unsubscribe-Post"));
+                const sender = m.envelope?.from?.[0];
+                rows.push({
+                  msg_id: makeId(box.uidValidity, m.uid, f.path),
+                  from_email: (sender?.address ?? "unknown").toLowerCase(),
+                  from_name: sender?.name || null,
+                  date: new Date(m.internalDate ?? m.envelope?.date ?? Date.now()).getTime(),
+                  size: m.size ?? 0,
+                  unread: !m.flags?.has("\\Seen"),
+                  in_inbox: allMail ? labels.has("\\Inbox") : folderIsInbox,
+                  unsub_http: unsub.http,
+                  unsub_mailto: unsub.mailto,
+                  one_click: unsub.oneClick,
+                });
+              }
+            } finally {
+              lock.release();
+            }
+            break;
+          } catch (e) {
+            // Reconnect and retry this batch a few times before giving up.
+            if (attempt >= 3 || !isConnectionError(e)) throw e;
+            await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+            await reconnect();
+          }
+        }
+        const take = rows.slice(0, hooks.limit - walked);
+        for (const r of take) hooks.onSeen(r.msg_id);
+        hooks.onBatch(take);
+        walked += take.length;
       }
     }
     hooks.onCapped(capped);
     return walked < hooks.limit;
-  });
+  } finally {
+    await c.logout().catch(() => c.close());
+  }
 }
 
 async function moveAll(cfg: ImapConfig, ids: string[], target: "trash" | "archive") {

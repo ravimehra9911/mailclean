@@ -25,6 +25,7 @@ export function imapConfig(a: AccountRow): ImapConfig {
     pass: decrypt(a.refresh_token),
     label: info.label,
     folderCap: "folderCap" in info ? info.folderCap : undefined,
+    fullHeaders: /(^|\.)(yahoo|aol)\.com$/i.test(host),
   };
 }
 
@@ -160,6 +161,22 @@ export async function moveMessages(a: AccountRow, ids: string[], action: "trash"
     return;
   }
   return providers[a.provider][action](await accessToken(a.id), ids);
+}
+
+/**
+ * One-time rescan of Yahoo/AOL accounts scanned before v1.3.3: those servers returned no
+ * List-Unsubscribe data until MailClean started reading full headers (see ImapConfig.fullHeaders).
+ */
+export function rescanForHeaderFix() {
+  if (isDemo()) return;
+  const d = db();
+  for (const a of d.prepare("SELECT * FROM accounts").all() as unknown as AccountRow[]) {
+    if (!isImap(a.provider) || !/(^|\.)(yahoo|aol)\.com$/i.test(a.imap_host || IMAP_PROVIDERS[a.provider].host || "")) continue;
+    const key = `header-fix-v1:${a.id}`;
+    if (d.prepare("SELECT 1 FROM kv WHERE k = ?").get(key)) continue;
+    d.prepare("INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)").run(key, String(Date.now()));
+    if (a.sync_status !== "syncing") startSync(a.id);
+  }
 }
 
 export function removeAccount(id: string) {
