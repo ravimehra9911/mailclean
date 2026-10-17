@@ -317,7 +317,7 @@ export default async function SitePage() {
 
         {/* FAQ */}
         <section className="mx-auto max-w-3xl px-4 py-20">
-          <h2 className="text-center text-3xl font-semibold">Questions</h2>
+          <h2 className="text-center text-3xl font-semibold">FAQs</h2>
           <div className="mt-8 divide-y divide-line rounded-2xl border border-line bg-card">
             {FAQ.map((f) => (
               <details key={f.q} className="group px-6 py-4">

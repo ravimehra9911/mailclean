@@ -1,5 +1,5 @@
 // Electron helper for scripts/screenshots.mjs: loads the demo and saves PNGs.
-const { app, BrowserWindow } = require("electron");
+const { app, session, BrowserWindow } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -37,6 +37,8 @@ const waitFor = (win, js) => win.webContents.executeJavaScript(`new Promise((res
 })`);
 
 app.whenReady().then(async () => {
+  // Start from a clean browser: demo clean-ups are stored in a cookie, which would carry over between runs.
+  await session.defaultSession.clearStorageData();
   const win = new BrowserWindow({ width: W, height: H, show: false, useContentSize: true, webPreferences: { offscreen: true } });
   for (const shot of SHOTS) {
     await win.loadURL(`${base}/demo`);

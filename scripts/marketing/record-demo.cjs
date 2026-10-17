@@ -1,6 +1,6 @@
 // Records a scripted walkthrough of the web demo (sample data) to an MP4.
 // Started by scripts/marketing/record.mjs, which runs the demo server: electron record-demo.cjs <baseUrl> <out.mp4>
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, session, BrowserWindow, ipcMain } = require("electron");
 const fs = require("node:fs");
 
 const [base, outFile] = process.argv.slice(-2);
@@ -104,6 +104,8 @@ const END_CARD = `
   <div style="font-size:24px;color:#8c93a3;margin-top:6px">github.com/ravimehra9911/mailclean · Built by Ravi Mehra</div>`;
 
 app.whenReady().then(async () => {
+  // Start from a clean browser: demo clean-ups are stored in a cookie, which would carry over between runs.
+  await session.defaultSession.clearStorageData();
   // Recorder: draws frames onto a canvas and encodes them with MediaRecorder (H.264 MP4).
   const rec = new BrowserWindow({ show: false, webPreferences: { offscreen: true, nodeIntegration: true, contextIsolation: false } });
   await rec.loadURL(`data:text/html,<canvas id=c width=${W} height=${H}></canvas>`);

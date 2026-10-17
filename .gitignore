@@ -55,3 +55,4 @@ client_secret_*.json
 
 # generated marketing assets (npm run marketing)
 /marketing/
+/review-screenshots/

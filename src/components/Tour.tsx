@@ -5,10 +5,9 @@
 
 import { driver, type Driver, type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
+import type { Tab } from "./Sidebar";
 
 export type TourKind = "intro" | "add-account";
-type Tab = "overview" | "senders" | "newsletters" | "accounts" | "about";
-
 /** Set once a tour has been shown, so it only starts automatically on first launch. */
 export const TOUR_DONE_KEY = "mailclean-tour-done";
 
@@ -95,6 +94,7 @@ function introSteps(d: () => Driver, setTab: (t: Tab) => void): DriveStep[] {
     { element: el("nav"), popover: { title: "Sections", description: "Overview, every sender, just newsletters, and your connected accounts.", side: "right" } },
     { element: el("date-filter"), popover: { title: "Filter by date", description: "Look at all time, the last 30 days, a whole year, or pick your own start and end dates.", side: "bottom" } },
     { element: el("account-filter"), popover: { title: "Choose an inbox", description: "See all your accounts together, or one at a time.", side: "bottom" } },
+    { element: el("sync"), popover: { title: "Sync", description: "Deleted or received emails in Gmail or Yahoo directly? Click <b>Sync</b> to rescan so the numbers stay up to date.", side: "bottom" } },
     { element: el("summary"), popover: { title: "Your inbox at a glance", description: "How many emails, how much storage, how much is unread — and which senders you never open.", side: "bottom" } },
     {
       element: el("senders-table"),
@@ -126,7 +126,7 @@ function introSteps(d: () => Driver, setTab: (t: Tab) => void): DriveStep[] {
       element: el("add-account"),
       popover: {
         title: "Add more inboxes",
-        description: "Connect Gmail, Yahoo, iCloud and more here. Use <b>How to add an account</b> in the sidebar for step-by-step help.",
+        description: "Connect Gmail, Yahoo, iCloud and more here. <b>Help → How to add an account</b> walks you through it step by step.",
         side: "bottom",
         onPrevClick: async () => {
           setTab("overview");
@@ -138,7 +138,7 @@ function introSteps(d: () => Driver, setTab: (t: Tab) => void): DriveStep[] {
     { element: el("theme"), popover: { title: "Light or dark", description: "Follow your system, or choose light or dark.", side: "right" } },
     {
       element: el("help"),
-      popover: { title: "Need this again?", description: "Replay this tour any time from here, or from Privacy & about.", side: "right" },
+      popover: { title: "Need help?", description: "Replay this tour, follow the add-account guide, or find quick answers under <b>Help</b>.", side: "right" },
     },
   ];
 }
@@ -190,24 +190,4 @@ export async function startTour(kind: TourKind, ctx: { setTab: (t: Tab) => void;
     },
   });
   d.drive();
-}
-
-/** "Take the tour" / "How to add an account" buttons for the sidebar. */
-export function TourButtons({ onStart, compact = false }: { onStart: (k: TourKind) => void; compact?: boolean }) {
-  if (compact) {
-    return (
-      <button data-tour={compact ? undefined : "help"} onClick={() => onStart("intro")} title="Take the tour" aria-label="Take the tour"
-        className="grid h-8 w-8 place-items-center rounded-lg border border-line text-sm font-semibold text-subtle hover:text-ink">?</button>
-    );
-  }
-  return (
-    <div data-tour="help" className="space-y-1">
-      <button onClick={() => onStart("intro")} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-subtle hover:bg-muted hover:text-ink">
-        <span aria-hidden>🧭</span> Take the tour
-      </button>
-      <button onClick={() => onStart("add-account")} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-subtle hover:bg-muted hover:text-ink">
-        <span aria-hidden>➕</span> How to add an account
-      </button>
-    </div>
-  );
 }

@@ -5,13 +5,15 @@ import { isImapProvider, providerInfo, type ImapProviderId } from "@/lib/catalog
 import { AddAccount, ProviderIcon } from "./AddAccount";
 import { ALL_TIME, DateFilter, rangeLabel, rangeParams, type DateRange } from "./DateFilter";
 import { ThemeToggle } from "./ThemeToggle";
-import { startTour, TourButtons, tourSeen, type TourKind } from "./Tour";
-import { UpdateBanner, UpdateSection, useUpdates, type UpdateInfo } from "./Updates";
+import { startTour, tourSeen, type TourKind } from "./Tour";
+import { Sidebar, type Tab } from "./Sidebar";
+import { AboutPage, HelpPage, PrivacyPage } from "./Pages";
+import { IconRefresh } from "./Icons";
+import { UpdateBanner, useUpdates } from "./Updates";
 import { api, fmtBytes, fmtNum, pct, type Account, type Overview } from "./api";
 import { AccountChip, SendersTable } from "./SendersTable";
 import { VolumeChart } from "./VolumeChart";
 
-type Tab = "overview" | "senders" | "newsletters" | "accounts" | "about";
 type Toast = { msg: string; kind: "ok" | "err" } | null;
 
 export default function Dashboard() {
@@ -94,42 +96,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen md:flex">
-      <aside className="border-b border-line bg-card md:sticky md:top-0 md:flex md:h-screen md:w-56 md:shrink-0 md:flex-col md:border-r md:border-b-0">
-        {/* In the web demo the logo leads back to the website. */}
-        {about.demo ? (
-          <a href="/" title="Back to the MailClean website" className="flex items-center gap-2 px-5 py-4 text-lg font-semibold hover:opacity-80">
-            <span className="grid size-8 place-items-center rounded-lg bg-accent text-white">✦</span> MailClean
-          </a>
-        ) : (
-          <div className="flex items-center gap-2 px-5 py-4 text-lg font-semibold">
-            <span className="grid size-8 place-items-center rounded-lg bg-accent text-white">✦</span> MailClean
-          </div>
-        )}
-        <nav data-tour="nav" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:pb-0">
-          {about.demo && (
-            <a href="/" className="whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-medium text-accent hover:bg-muted md:mb-2">
-              ← Back to website
-            </a>
-          )}
-          {([
-            ["overview", "Overview"],
-            ["senders", "Senders"],
-            ["newsletters", "Newsletters"],
-            ["accounts", `Accounts (${accounts.length})`],
-            ["about", "Privacy & about"],
-          ] as [Tab, string][]).map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm ${tab === t ? "bg-muted font-medium" : "text-subtle hover:bg-muted"}`}>
-              {label}
-            </button>
-          ))}
-        </nav>
-        <div className="hidden space-y-3 px-4 py-4 md:mt-auto md:block">
-          <TourButtons onStart={runTour} />
-          <div data-tour="theme"><ThemeToggle /></div>
-          <DeveloperCredit />
-        </div>
-      </aside>
+      <Sidebar tab={tab} setTab={setTab} accountCount={accounts.length} version={about.version} demo={about.demo} />
 
       <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 md:px-8">
         {about.demo && (
@@ -142,8 +109,12 @@ export default function Dashboard() {
           </div>
         )}
         <UpdateBanner info={updates.info} />
-        {tab === "about" ? (
-          <About version={about.version} dataDir={about.dataDir} updates={updates} onTour={runTour} />
+        {tab === "help" ? (
+          <HelpPage onTour={runTour} />
+        ) : tab === "privacy" ? (
+          <PrivacyPage dataDir={about.dataDir} />
+        ) : tab === "about" ? (
+          <AboutPage version={about.version} updates={updates} />
         ) : accounts.length === 0 ? (
           <Welcome configured={configured} onConnected={changed} toast={toast} />
         ) : (
@@ -158,9 +129,11 @@ export default function Dashboard() {
                     <option value="">All accounts ({accounts.length})</option>
                     {accounts.map((a) => <option key={a.id} value={a.id}>{providerInfo(a.provider).label} · {a.email}</option>)}
                   </select>
+                  <SyncButton accounts={accountId ? accounts.filter((a) => a.id === accountId) : accounts} demo={about.demo}
+                    onStarted={changed} toast={toast} />
                 </div>
               )}
-              <div className="flex items-center gap-2 md:hidden"><TourButtons onStart={runTour} compact /><ThemeToggle /></div>
+              <div className="md:hidden"><ThemeToggle /></div>
             </header>
 
             {syncing && tab !== "accounts" && <SyncBanner accounts={accounts} />}
@@ -258,6 +231,50 @@ function Card({ title, sub, action, children }: { title: string; sub?: string; a
   );
 }
 
+function ago(ms: number): string {
+  const m = Math.round((Date.now() - ms) / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} h ago`;
+  return `${Math.round(h / 24)} d ago`;
+}
+
+/**
+ * Rescans the shown accounts so changes made elsewhere (e.g. emails deleted in Gmail) are picked up.
+ * Shows when the data was last synced.
+ */
+function SyncButton({ accounts, demo, onStarted, toast }: {
+  accounts: Account[]; demo: boolean; onStarted: () => void; toast: (m: string, k?: "ok" | "err") => void;
+}) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 60_000); return () => clearInterval(t); }, []);
+  const busy = accounts.some((a) => a.sync_status === "syncing");
+  const times = accounts.map((a) => a.last_sync_at).filter((t): t is number => !!t);
+  const last = times.length ? Math.min(...times) : null;
+
+  async function sync() {
+    if (demo) { toast("The demo uses sample data — in the app, Sync rescans your mailbox."); return; }
+    try {
+      await Promise.all(accounts.map((a) => api(`/api/accounts/${a.id}/sync`, { method: "POST" })));
+      onStarted();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button onClick={sync} disabled={busy} title="Rescan your mailbox for new and deleted emails" data-tour="sync"
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-card px-3 text-sm font-medium hover:bg-muted disabled:opacity-60">
+        <IconRefresh className={`size-4 ${busy ? "animate-spin" : ""}`} />
+        {busy ? "Syncing…" : "Sync"}
+      </button>
+      {last && !busy && <span className="hidden text-xs text-subtle lg:inline">Synced {ago(last)}</span>}
+    </div>
+  );
+}
+
 function SyncBanner({ accounts }: { accounts: Account[] }) {
   const s = accounts.filter((a) => a.sync_status === "syncing");
   const done = s.reduce((a, x) => a + x.synced, 0);
@@ -340,69 +357,5 @@ function Accounts({ accounts, configured, reload, toast }: {
         ))}
       </div>
     </div>
-  );
-}
-
-function About({ version, dataDir, updates, onTour }: {
-  version: string; dataDir: string; updates: { info: UpdateInfo | null; checking: boolean; check: (force?: boolean) => void };
-  onTour: (k: TourKind) => void;
-}) {
-  const item = "rounded-xl border border-line bg-card p-5";
-  return (
-    <div className="max-w-3xl space-y-4 text-sm leading-relaxed">
-      <h1 className="text-2xl font-semibold">Privacy &amp; about</h1>
-      <section className={item}>
-        <h2 className="mb-2 font-semibold">What MailClean reads</h2>
-        <p className="text-subtle">
-          For each email only the sender, date, size, read/inbox status and the sender&apos;s unsubscribe link are read.
-          Subjects, message text and attachments are never downloaded.
-        </p>
-      </section>
-      <section className={item}>
-        <h2 className="mb-2 font-semibold">Where your data lives</h2>
-        <p className="text-subtle">
-          Everything stays on this device. There is no MailClean server or account, and nothing is sent anywhere except
-          directly to your email provider. Passwords and sign-in tokens are encrypted (AES-256-GCM).
-        </p>
-        {dataDir && <p className="mt-2 break-all font-mono text-xs text-subtle">{dataDir}</p>}
-      </section>
-      <section className={item}>
-        <h2 className="mb-2 font-semibold">What it changes</h2>
-        <p className="text-subtle">
-          Only what you click: <b>Move to Trash</b> moves mail to your provider&apos;s Trash (restorable there for about 30 days),
-          <b> Archive</b> removes it from the inbox, and <b>Unsubscribe</b> uses the sender&apos;s own unsubscribe link.
-          Nothing is ever permanently deleted.
-        </p>
-      </section>
-      <section className={item}>
-        <h2 className="mb-2 font-semibold">Removing your data</h2>
-        <p className="text-subtle">
-          <b>Accounts → Disconnect</b> deletes that account&apos;s password and scanned data from this device. Also delete the
-          app password at your provider (Google, Yahoo, Apple…) to revoke access completely.
-        </p>
-      </section>
-      <section className="rounded-xl border border-line bg-card p-5">
-        <h2 className="mb-2 font-semibold">Help</h2>
-        <p className="mb-3 text-subtle">Guided tours that point out each part of MailClean.</p>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => onTour("intro")} className="rounded-lg bg-accent px-3 py-1.5 font-medium text-white hover:opacity-90">🧭 Take the tour</button>
-          <button onClick={() => onTour("add-account")} className="rounded-lg border border-line px-3 py-1.5 font-medium hover:bg-muted">➕ How to add an account</button>
-        </div>
-      </section>
-      <UpdateSection {...updates} version={version} />
-      <p className="text-xs text-subtle">MailClean {version}</p>
-    </div>
-  );
-}
-
-function DeveloperCredit() {
-  return (
-    <a href="https://github.com/ravimehra9911" target="_blank" rel="noopener noreferrer"
-      className="flex items-center gap-2 text-xs text-subtle hover:text-ink">
-      <svg viewBox="0 0 16 16" className="size-4" fill="currentColor" aria-hidden>
-        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
-      </svg>
-      <span>Built by <b className="font-medium">@ravimehra9911</b></span>
-    </a>
   );
 }
