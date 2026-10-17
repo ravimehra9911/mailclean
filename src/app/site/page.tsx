@@ -3,6 +3,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Analytics, AnalyticsSettings } from "@/components/site/Analytics";
 import { getDownloadCounts, type InstallerKey } from "@/lib/downloads";
 import { HeroVideo } from "@/components/site/HeroVideo";
+import { DownloadCountsProvider, DownloadTotal } from "@/components/site/DownloadCounts";
 import { PROVIDER_LOGOS } from "@/components/site/ProviderLogos";
 import { CleanupDemo, CountUp, Downloads, Reveal, ScrollProgress, SpotlightGrid, Tilt } from "@/components/site/Effects";
 
@@ -100,6 +101,7 @@ const FAQ = [
 export default async function SitePage() {
   const counts = await getDownloadCounts();
   return (
+    <DownloadCountsProvider initial={counts}>
     <div className="min-h-screen overflow-x-clip">
       <ScrollProgress />
       <Analytics />
@@ -147,7 +149,7 @@ export default async function SitePage() {
           </div>
           <p className="mt-3 text-xs text-subtle">
             macOS · Windows · Linux{VERSION && ` · v${VERSION}`}
-            {counts.total > 0 && ` · ${counts.total.toLocaleString("en-IN")} downloads`}
+            <DownloadTotal />
           </p>
           <Tilt className="mx-auto mt-12 max-w-5xl">
             <div className="float overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-accent/20">
@@ -342,6 +344,7 @@ export default async function SitePage() {
         </div>
       </footer>
     </div>
+    </DownloadCountsProvider>
   );
 }
 

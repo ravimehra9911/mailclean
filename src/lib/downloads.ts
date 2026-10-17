@@ -20,22 +20,35 @@ function installerOf(name: string): InstallerKey | null {
   return null;
 }
 
+export const RELEASES_API = `https://api.github.com/repos/${REPO}/releases?per_page=100`;
+
+export type ReleasesJson = { assets?: { name: string; download_count: number }[] }[];
+
+/** Sums download counts per installer over all releases. Safe to use in the browser. */
+export function countsFromReleases(releases: ReleasesJson): DownloadCounts {
+  const byInstaller = { ...EMPTY.byInstaller };
+  for (const r of releases) {
+    for (const a of r.assets ?? []) {
+      const k = installerOf(a.name);
+      if (k) byInstaller[k] += a.download_count;
+    }
+  }
+  return { byInstaller, total: Object.values(byInstaller).reduce((x, y) => x + y, 0) };
+}
+
+/**
+ * Server-side counts for the first render. On Vercel this often gets rate limited (GitHub allows
+ * 60 unauthenticated requests per hour per IP, and build machines share IPs), so the page also
+ * refreshes the counts in the visitor's browser (src/components/site/DownloadCounts.tsx).
+ */
 export async function getDownloadCounts(): Promise<DownloadCounts> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=100`, {
+    const res = await fetch(RELEASES_API, {
       headers: { Accept: "application/vnd.github+json", "User-Agent": "mailclean-website" },
-      next: { revalidate: 3600 }, // refresh hourly (GitHub allows 60 unauthenticated requests/hour)
+      next: { revalidate: 3600 },
     });
     if (!res.ok) return EMPTY;
-    const releases = (await res.json()) as { assets?: { name: string; download_count: number }[] }[];
-    const byInstaller = { ...EMPTY.byInstaller };
-    for (const r of releases) {
-      for (const a of r.assets ?? []) {
-        const k = installerOf(a.name);
-        if (k) byInstaller[k] += a.download_count;
-      }
-    }
-    return { byInstaller, total: Object.values(byInstaller).reduce((x, y) => x + y, 0) };
+    return countsFromReleases((await res.json()) as ReleasesJson);
   } catch {
     return EMPTY;
   }

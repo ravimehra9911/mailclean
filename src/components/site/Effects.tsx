@@ -5,6 +5,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { confetti, ThankYou } from "./Celebrate";
+import { useDownloadCounts } from "./DownloadCounts";
+import type { InstallerKey } from "@/lib/downloads";
 
 /** Fades and slides its children in when they scroll into view. */
 export function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
@@ -195,6 +197,7 @@ export interface DownloadItem {
 export function Downloads({ items }: { items: DownloadItem[] }) {
   const { os, macArch } = useDetectedOs();
   const [thanks, setThanks] = useState<string | null>(null);
+  const live = useDownloadCounts();
 
   // The link itself starts the download (GitHub serves it as a file, so the page stays);
   // celebrate and say thanks on top.
@@ -211,6 +214,7 @@ export function Downloads({ items }: { items: DownloadItem[] }) {
       {items.map((d) => {
         // Highlight the card for this computer; for Macs only the matching chip when the browser tells us.
         const match = os === d.key && (!macArch || !d.arch || d.arch === macArch);
+        const downloads = live?.byInstaller[d.id as InstallerKey] ?? d.downloads;
         return (
           <a key={d.href} href={d.href} data-track="download" data-track-label={d.id} onClick={(e) => celebrate(e, d.id)}
             className={`spot group relative overflow-hidden rounded-2xl border bg-card p-6 transition hover:-translate-y-1 hover:shadow-xl ${
@@ -225,8 +229,8 @@ export function Downloads({ items }: { items: DownloadItem[] }) {
               <span className="font-medium text-accent">
                 Download <span className="inline-block transition group-hover:translate-y-0.5">↓</span>
               </span>
-              {d.downloads > 0 && (
-                <span className="text-xs text-subtle tabular-nums">{d.downloads.toLocaleString("en-IN")} download{d.downloads === 1 ? "" : "s"}</span>
+              {downloads > 0 && (
+                <span className="text-xs text-subtle tabular-nums">{downloads.toLocaleString("en-IN")} download{downloads === 1 ? "" : "s"}</span>
               )}
             </div>
           </a>
