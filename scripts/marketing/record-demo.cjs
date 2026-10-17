@@ -100,7 +100,7 @@ const END_CARD = `
     <span style="padding:10px 20px;border-radius:99px;border:1px solid #7c7cf0;background:rgba(124,124,240,.15)">Open source</span>
     <span style="padding:10px 20px;border-radius:99px;border:1px solid #7c7cf0;background:rgba(124,124,240,.15)">macOS · Windows · Linux</span>
   </div>
-  <div style="margin-top:26px;font-size:34px;font-weight:650;padding:20px 34px;border-radius:18px;background:linear-gradient(90deg,#6d6df0,#9b6cf5)">mailclean-gilt.vercel.app</div>
+  <div style="margin-top:26px;font-size:34px;font-weight:650;padding:20px 34px;border-radius:18px;background:linear-gradient(90deg,#6d6df0,#9b6cf5)">mailclean.app</div>
   <div style="font-size:24px;color:#8c93a3;margin-top:6px">github.com/ravimehra9911/mailclean · Built by Ravi Mehra</div>`;
 
 app.whenReady().then(async () => {

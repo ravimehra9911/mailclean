@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import desktop from "./electron/package.json";
 
-// Google Analytics for the official website (mailclean-gilt.vercel.app). It is only switched on for Vercel
+// Google Analytics for the official website (www.mailclean.app). It is only switched on for Vercel
 // builds of the upstream repository, so forks that deploy their own copy don't report into it.
 // Anyone can override it with NEXT_PUBLIC_GA_ID. The desktop app never renders analytics.
 const OFFICIAL_GA_ID = "G-YYKZHW20HR";

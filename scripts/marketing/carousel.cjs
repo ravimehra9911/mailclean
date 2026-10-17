@@ -10,7 +10,7 @@ const W = 1080, H = 1350;
 
 const img = (name) => `data:image/png;base64,${fs.readFileSync(path.join(ROOT, "public", "screenshots", name)).toString("base64")}`;
 const ICON = `data:image/png;base64,${fs.readFileSync(path.join(ROOT, "build", "icon.png")).toString("base64")}`;
-const SITE = "mailclean-gilt.vercel.app";
+const SITE = "mailclean.app";
 const REPO = "github.com/ravimehra9911/mailclean";
 
 const CSS = `

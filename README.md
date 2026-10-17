@@ -5,8 +5,8 @@ connects Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox, shows which sende
 unsubscribes from newsletters and trashes or archives thousands of emails per sender in one click.
 
 [Download](https://github.com/ravimehra9911/mailclean/releases/latest) ·
-[Website](https://mailclean-gilt.vercel.app) ·
-[Live demo](https://mailclean-gilt.vercel.app/demo) ·
+[Website](https://www.mailclean.app) ·
+[Live demo](https://www.mailclean.app/demo) ·
 [MIT license](LICENSE) ·
 built by [@ravimehra9911](https://github.com/ravimehra9911)
 

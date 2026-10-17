@@ -7,7 +7,7 @@ import type { TourKind } from "./Tour";
 import { UpdateSection, type UpdateInfo } from "./Updates";
 
 const REPO = "https://github.com/ravimehra9911/mailclean";
-const SITE = "https://mailclean-gilt.vercel.app";
+const SITE = "https://www.mailclean.app";
 const card = "rounded-xl border border-line bg-card p-5";
 
 function PageTitle({ title, sub }: { title: string; sub: string }) {

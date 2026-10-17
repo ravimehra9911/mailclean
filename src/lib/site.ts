@@ -1,6 +1,6 @@
 // Facts about the public website, shared by metadata, structured data, sitemap, robots and llms.txt.
 
-export const SITE_URL = (process.env.MAILCLEAN_SITE_URL || "https://mailclean-gilt.vercel.app").replace(/\/$/, "");
+export const SITE_URL = (process.env.MAILCLEAN_SITE_URL || "https://www.mailclean.app").replace(/\/$/, "");
 export const SITE_NAME = "MailClean";
 export const REPO_URL = "https://github.com/ravimehra9911/mailclean";
 export const DEVELOPER = { name: "Ravi Mehra", url: "https://github.com/ravimehra9911", handle: "@ravimehra9911" };

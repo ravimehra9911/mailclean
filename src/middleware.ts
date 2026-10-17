@@ -19,6 +19,10 @@ export function middleware(req: NextRequest) {
   // Hosted website + demo (Vercel): "/" shows the landing page; the demo dashboard is at "/demo".
   if (process.env.MAILCLEAN_DEMO === "1" || process.env.VERCEL === "1") {
     const { pathname } = req.nextUrl;
+    // The site moved to its own domain; send visitors and search engines from the old Vercel address.
+    if (req.headers.get("host") === "mailclean-gilt.vercel.app") {
+      return NextResponse.redirect(new URL(`${pathname}${req.nextUrl.search}`, "https://www.mailclean.app"), 308);
+    }
     if (pathname === "/") return NextResponse.rewrite(new URL("/site", req.url));
     return NextResponse.next();
   }
