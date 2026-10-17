@@ -130,7 +130,7 @@ app.whenReady().then(async () => {
 
   // Load the demo in dark mode first, then start recording.
   await win.loadURL(`${base}/demo`);
-  await win.webContents.executeJavaScript(`localStorage.setItem("mailclean-theme","dark")`);
+  await win.webContents.executeJavaScript(`localStorage.setItem("mailclean-theme","dark"); localStorage.setItem("mailclean-tour-done","1")`);
   await win.loadURL(`${base}/demo`);
   const js = (code) => win.webContents.executeJavaScript(`(async () => { ${code} })()`);
   await js(`for (let i = 0; i < 150 && !document.querySelector('select[aria-label="Date range"] option[value^="year:"]'); i++) await new Promise(r => setTimeout(r, 100));`);

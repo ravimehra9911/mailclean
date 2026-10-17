@@ -18,6 +18,7 @@
     "marketing": "npm run desktop:prepare && electron scripts/marketing/carousel.cjs && node scripts/marketing/record.mjs"
   },
   "dependencies": {
+    "driver.js": "1.8.0",
     "imapflow": "1.7.8",
     "next": "15.5.27",
     "react": "19.1.9",

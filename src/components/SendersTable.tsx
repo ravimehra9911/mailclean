@@ -132,7 +132,7 @@ export function SendersTable(props: {
       <div className="overflow-x-auto rounded-xl border border-line bg-card">
         <table className="w-full min-w-[860px] text-sm [&_td]:whitespace-nowrap">
           <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-subtle">
-            <tr>
+            <tr data-tour="sort-headers">
               <th className="w-10 px-3 py-2.5"><input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all" /></th>
               {th("name", "Sender")}
               {th("account", "Account")}
@@ -144,11 +144,11 @@ export function SendersTable(props: {
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((r) => {
+            {data.rows.map((r, rowIndex) => {
               const unreadRate = r.count ? r.unread / r.count : 0;
               return (
                 <tr key={r.email} className={`border-b border-line last:border-0 ${selected.has(r.email) ? "bg-accent/5" : "hover:bg-muted"}`}>
-                  <td className="px-3 py-2.5"><input type="checkbox" checked={selected.has(r.email)} onChange={() => toggle(r.email)} aria-label={`Select ${r.email}`} /></td>
+                  <td className="px-3 py-2.5" data-tour={rowIndex === 0 ? "select" : undefined}><input type="checkbox" checked={selected.has(r.email)} onChange={() => toggle(r.email)} aria-label={`Select ${r.email}`} /></td>
                   <td className="w-full max-w-0 min-w-[220px] px-2 py-2.5" style={{ whiteSpace: "normal" }}>
                     <div className="flex items-center gap-3">
                       <Avatar name={r.name || r.email} />
@@ -173,7 +173,7 @@ export function SendersTable(props: {
                   </td>
                   {!compact && <td className="px-2 py-2.5 text-subtle">{fmtDate(r.last)}</td>}
                   <td className="px-3 py-2.5">
-                    <div className="flex justify-end gap-1.5">
+                    <div className="flex justify-end gap-1.5" data-tour={rowIndex === 0 ? "row-actions" : undefined}>
                       {r.can_unsub > 0 && (r.unsubscribed ? (
                         <span className="rounded-md px-2 py-1 text-xs text-ok">✓ Unsubscribed</span>
                       ) : (

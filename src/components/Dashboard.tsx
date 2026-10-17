@@ -5,6 +5,7 @@ import { isImapProvider, providerInfo, type ImapProviderId } from "@/lib/catalog
 import { AddAccount, ProviderIcon } from "./AddAccount";
 import { ALL_TIME, DateFilter, rangeLabel, rangeParams, type DateRange } from "./DateFilter";
 import { ThemeToggle } from "./ThemeToggle";
+import { startTour, TourButtons, tourSeen, type TourKind } from "./Tour";
 import { UpdateBanner, UpdateSection, useUpdates, type UpdateInfo } from "./Updates";
 import { api, fmtBytes, fmtNum, pct, type Account, type Overview } from "./api";
 import { AccountChip, SendersTable } from "./SendersTable";
@@ -19,6 +20,20 @@ export default function Dashboard() {
   const [configured, setConfigured] = useState({ google: false, microsoft: false });
   const [about, setAbout] = useState({ version: "", dataDir: "", demo: false });
   const updates = useUpdates();
+
+  const runTour = useCallback(
+    (kind: TourKind) => { startTour(kind, { setTab, hasAccounts: (accounts?.length ?? 0) > 0 }); },
+    [accounts?.length],
+  );
+
+  // First launch: start the tour once the app has loaded.
+  const loaded = accounts !== null;
+  useEffect(() => {
+    if (!loaded || tourSeen()) return;
+    const t = setTimeout(() => runTour("intro"), 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
   const [accountId, setAccountId] = useState("");
   const [range, setRange] = useState<DateRange>(ALL_TIME);
   const [ov, setOv] = useState<Overview | null>(null);
@@ -90,7 +105,7 @@ export default function Dashboard() {
             <span className="grid size-8 place-items-center rounded-lg bg-accent text-white">✦</span> MailClean
           </div>
         )}
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:pb-0">
+        <nav data-tour="nav" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:pb-0">
           {about.demo && (
             <a href="/" className="whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-medium text-accent hover:bg-muted md:mb-2">
               ← Back to website
@@ -110,7 +125,8 @@ export default function Dashboard() {
           ))}
         </nav>
         <div className="hidden space-y-3 px-4 py-4 md:mt-auto md:block">
-          <ThemeToggle />
+          <TourButtons onStart={runTour} />
+          <div data-tour="theme"><ThemeToggle /></div>
           <DeveloperCredit />
         </div>
       </aside>
@@ -127,7 +143,7 @@ export default function Dashboard() {
         )}
         <UpdateBanner info={updates.info} />
         {tab === "about" ? (
-          <About version={about.version} dataDir={about.dataDir} updates={updates} />
+          <About version={about.version} dataDir={about.dataDir} updates={updates} onTour={runTour} />
         ) : accounts.length === 0 ? (
           <Welcome configured={configured} onConnected={changed} toast={toast} />
         ) : (
@@ -137,14 +153,14 @@ export default function Dashboard() {
               {tab !== "accounts" && (
                 <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                   <DateFilter value={range} years={ov?.years ?? []} onChange={setRange} />
-                  <select aria-label="Account" value={accountId} onChange={(e) => setAccountId(e.target.value)}
+                  <select data-tour="account-filter" aria-label="Account" value={accountId} onChange={(e) => setAccountId(e.target.value)}
                     className="h-9 rounded-lg border border-line bg-card px-2 text-sm">
                     <option value="">All accounts ({accounts.length})</option>
                     {accounts.map((a) => <option key={a.id} value={a.id}>{providerInfo(a.provider).label} · {a.email}</option>)}
                   </select>
                 </div>
               )}
-              <div className="md:hidden"><ThemeToggle /></div>
+              <div className="flex items-center gap-2 md:hidden"><TourButtons onStart={runTour} compact /><ThemeToggle /></div>
             </header>
 
             {syncing && tab !== "accounts" && <SyncBanner accounts={accounts} />}
@@ -156,7 +172,7 @@ export default function Dashboard() {
 
             {tab === "overview" && ov && (
               <div className="space-y-6">
-                <Summary ov={ov} period={rangeLabel(range)} onMostlyUnread={() => setTab("senders")} />
+                <div data-tour="summary"><Summary ov={ov} period={rangeLabel(range)} onMostlyUnread={() => setTab("senders")} /></div>
                 {!accountId && ov.byAccount.length > 1 && (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {ov.byAccount.map((s) => (
@@ -185,7 +201,7 @@ export default function Dashboard() {
                   <VolumeChart daily={ov.daily} />
                 </Card>
                 <Card title="Top senders" sub="who fills your inbox" action={<button onClick={() => setTab("senders")} className="text-sm text-accent">View all →</button>}>
-                  <SendersTable accountId={accountId} range={range} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} />
+                  <div data-tour="senders-table"><SendersTable accountId={accountId} range={range} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} /></div>
                 </Card>
               </div>
             )}
@@ -297,7 +313,7 @@ function Accounts({ accounts, configured, reload, toast }: {
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-line bg-card p-5">
-        <h2 className="mb-3 font-semibold">{preset ? `Update the app password for ${preset.email}` : "Add an account"}</h2>
+        <h2 data-tour="add-account" className="mb-3 font-semibold">{preset ? `Update the app password for ${preset.email}` : "Add an account"}</h2>
         <AddAccount key={preset ? `${preset.provider}:${preset.email}` : "new"} preset={preset} configured={configured}
           onConnected={() => { setPreset(null); reload(); }} toast={toast} />
       </section>
@@ -327,8 +343,9 @@ function Accounts({ accounts, configured, reload, toast }: {
   );
 }
 
-function About({ version, dataDir, updates }: {
+function About({ version, dataDir, updates, onTour }: {
   version: string; dataDir: string; updates: { info: UpdateInfo | null; checking: boolean; check: (force?: boolean) => void };
+  onTour: (k: TourKind) => void;
 }) {
   const item = "rounded-xl border border-line bg-card p-5";
   return (
@@ -363,6 +380,14 @@ function About({ version, dataDir, updates }: {
           <b>Accounts → Disconnect</b> deletes that account&apos;s password and scanned data from this device. Also delete the
           app password at your provider (Google, Yahoo, Apple…) to revoke access completely.
         </p>
+      </section>
+      <section className="rounded-xl border border-line bg-card p-5">
+        <h2 className="mb-2 font-semibold">Help</h2>
+        <p className="mb-3 text-subtle">Guided tours that point out each part of MailClean.</p>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => onTour("intro")} className="rounded-lg bg-accent px-3 py-1.5 font-medium text-white hover:opacity-90">🧭 Take the tour</button>
+          <button onClick={() => onTour("add-account")} className="rounded-lg border border-line px-3 py-1.5 font-medium hover:bg-muted">➕ How to add an account</button>
+        </div>
       </section>
       <UpdateSection {...updates} version={version} />
       <p className="text-xs text-subtle">MailClean {version}</p>

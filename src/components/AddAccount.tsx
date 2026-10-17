@@ -24,11 +24,11 @@ export function AddAccount(props: {
 
   return (
     <div className="text-left">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+      <div data-tour="providers" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
         {ORDER.map((id) => {
           const p = IMAP_PROVIDERS[id];
           return (
-            <button key={id} onClick={() => setChosen(chosen === id ? null : id)}
+            <button key={id} data-tour={`provider-${id}`} onClick={() => setChosen(chosen === id ? null : id)}
               className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition ${
                 chosen === id ? "border-accent bg-accent/10" : "border-line bg-card hover:bg-muted"}`}>
               <ProviderIcon icon={p.icon} color={p.color} />
@@ -105,11 +105,11 @@ function ImapForm({ provider, initialEmail, onDone, toast }: {
         <ProviderIcon icon={info.icon} color={info.color} /> Connect {info.label}
       </div>
 
-      <ol className="list-decimal space-y-1 pl-5 text-subtle">
+      <ol data-tour="steps" className="list-decimal space-y-1 pl-5 text-subtle">
         {info.steps.map((s) => <li key={s}>{s}</li>)}
       </ol>
       {"appPasswordUrl" in info && (
-        <a href={info.appPasswordUrl} target="_blank" rel="noopener noreferrer"
+        <a data-tour="app-password-link" href={info.appPasswordUrl} target="_blank" rel="noopener noreferrer"
           className="inline-flex h-9 items-center rounded-lg border border-line bg-card px-3 font-medium hover:bg-muted">
           Open {info.label} app passwords ↗
         </a>
@@ -117,12 +117,12 @@ function ImapForm({ provider, initialEmail, onDone, toast }: {
       {"note" in info && <p className="text-xs text-subtle">{info.note}</p>}
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="space-y-1">
+        <label data-tour="email" className="space-y-1">
           <span className="text-xs text-subtle">Email address</span>
           <input type="email" required autoComplete="off" placeholder={info.placeholder} value={email}
             onChange={(e) => setEmail(e.target.value)} className={field} />
         </label>
-        <label className="space-y-1">
+        <label data-tour="password" className="space-y-1">
           <span className="text-xs text-subtle">{custom ? "Password or app password" : "App password"}</span>
           <input type="password" required autoComplete="new-password" placeholder={custom ? "" : "xxxx xxxx xxxx xxxx"}
             value={password} onChange={(e) => setPassword(e.target.value)} className={field} />
@@ -153,7 +153,7 @@ function ImapForm({ provider, initialEmail, onDone, toast }: {
 
       {error && <div role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-danger">{error}</div>}
       <div className="flex flex-wrap items-center gap-3">
-        <button disabled={busy} className="h-10 rounded-lg bg-accent px-5 font-medium text-white disabled:opacity-60">
+        <button data-tour="connect" disabled={busy} className="h-10 rounded-lg bg-accent px-5 font-medium text-white disabled:opacity-60">
           {busy ? "Checking login…" : "Connect"}
         </button>
         <span className="text-xs text-subtle">🔒 Your password is encrypted and stays on this device.</span>

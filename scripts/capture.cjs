@@ -40,7 +40,7 @@ app.whenReady().then(async () => {
   const win = new BrowserWindow({ width: W, height: H, show: false, useContentSize: true, webPreferences: { offscreen: true } });
   for (const shot of SHOTS) {
     await win.loadURL(`${base}/demo`);
-    await win.webContents.executeJavaScript(`localStorage.setItem("mailclean-theme", "${shot.theme}")`);
+    await win.webContents.executeJavaScript(`localStorage.setItem("mailclean-theme", "${shot.theme}"); localStorage.setItem("mailclean-tour-done", "1")`);
     await win.loadURL(`${base}/demo`);
     // Wait for the dashboard and its data.
     await waitFor(win, `document.querySelector('select[aria-label="Date range"] option[value^="year:"]')`);

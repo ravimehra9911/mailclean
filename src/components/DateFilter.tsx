@@ -49,7 +49,7 @@ export function DateFilter({ value, years, onChange }: { value: DateRange; years
 
   const input = "h-9 rounded-lg border border-line bg-card px-2 text-sm outline-none focus:border-accent";
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div data-tour="date-filter" className="flex flex-wrap items-center gap-2">
       <select aria-label="Date range" value={value.key}
         onChange={(e) => (e.target.value === "custom" ? applyCustom(start, end) : onChange(preset(e.target.value)))}
         className={input}>
