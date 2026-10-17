@@ -13,6 +13,8 @@ type Dir = "asc" | "desc";
 export function SendersTable(props: {
   accountId: string;
   range: DateRange;
+  /** Short name per account email (e.g. "Gmail", or "Gmail · work" when two accounts share a provider). */
+  accountLabels?: Record<string, string>;
   initialFilter?: Filter;
   pageSize?: number;
   compact?: boolean;
@@ -20,7 +22,8 @@ export function SendersTable(props: {
   onChanged: () => void;
   toast: (msg: string, kind?: "ok" | "err") => void;
 }) {
-  const { accountId, range, compact, pageSize = 25, refreshKey, onChanged, toast } = props;
+  const { accountId, range, compact, pageSize = 25, refreshKey, onChanged, toast, accountLabels } = props;
+  const [fullAccounts, setFullAccounts] = useFullAccountLabels();
   const [filter, setFilter] = useState<Filter>(props.initialFilter ?? "all");
   const [sort, setSort] = useState<{ by: Sort; dir: Dir }>({ by: "count", dir: "desc" });
   const [q, setQ] = useState("");
@@ -144,7 +147,14 @@ export function SendersTable(props: {
             <tr data-tour="sort-headers">
               <th className="w-10 px-3 py-2.5"><input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all" /></th>
               {th("name", "Sender")}
-              {th("account", "Account")}
+              <SortHeader label="Account" active={sort.by === "account"} dir={sort.dir} align="left" onClick={() => sortBy("account")}
+                extra={accountLabels && (
+                  <button type="button" onClick={() => setFullAccounts(!fullAccounts)}
+                    title={fullAccounts ? "Show short account names" : "Show full email addresses"}
+                    className="ml-1.5 rounded border border-line px-1 py-px text-[10px] font-medium tracking-normal normal-case text-subtle hover:bg-muted hover:text-ink">
+                    {fullAccounts ? "Short" : "Full"}
+                  </button>
+                )} />
               {th("count", "Emails", "right")}
               {th("bytes", "Size", "right")}
               {th("unread", "Unread", "right")}
@@ -173,7 +183,8 @@ export function SendersTable(props: {
                   </td>
                   <td className="px-2 py-2.5">
                     <div className="flex flex-col items-start gap-1">
-                      {r.byAccount.map((s) => <AccountChip key={s.account_id} share={s} showCount={r.byAccount.length > 1} sender={r.email} toast={toast} />)}
+                      {r.byAccount.map((s) => <AccountChip key={s.account_id} share={s} showCount={r.byAccount.length > 1} sender={r.email} toast={toast}
+                        label={!fullAccounts ? accountLabels?.[s.email] : undefined} />)}
                     </div>
                   </td>
                   <td className="px-2 py-2.5 text-right tabular-nums font-medium">{fmtNum(r.count)}</td>
@@ -225,18 +236,20 @@ export function SendersTable(props: {
  * Shows which connected inbox an email count belongs to, e.g. "G you@gmail.com · 120".
  * With `sender`, it links to that inbox's web mail, searching for the sender's emails.
  */
-export function AccountChip({ share, showCount = true, sender, toast }: {
+export function AccountChip({ share, showCount = true, sender, toast, label }: {
   share: Pick<AccountShare, "provider" | "email"> & { count?: number };
   showCount?: boolean;
   sender?: string;
   toast?: (msg: string, kind?: "ok" | "err") => void;
+  /** Short name to show instead of the email address (the address stays in the tooltip). */
+  label?: string;
 }) {
   const p = providerInfo(share.provider);
   const link = sender ? mailboxLink(share.provider, share.email, sender) : null;
   const body = (
     <>
       <span className="font-bold" style={{ color: p.color }}>{p.icon}</span>
-      <span className="truncate">{share.email}</span>
+      <span className="truncate">{label ?? share.email}</span>
       {showCount && share.count !== undefined && <span className="tabular-nums text-subtle">· {fmtNum(share.count)}</span>}
       {link && <span aria-hidden className="text-subtle">↗</span>}
     </>
@@ -245,7 +258,7 @@ export function AccountChip({ share, showCount = true, sender, toast }: {
   if (!link || !sender) return <span title={`${p.label}: ${share.email}`} className={cls}>{body}</span>;
   return (
     <a href={link.url} target="_blank" rel="noopener noreferrer"
-      title={link.search ? `Open ${p.label} (${share.email}) showing emails from ${sender}` : `Open ${p.label} — the sender's address is copied for search`}
+      title={link.search ? `${share.email} — open ${p.label} showing emails from ${sender}` : `${share.email} — open ${p.label}; the sender's address is copied for search`}
       onClick={() => {
         // No search link for this provider: copy the address so it can be pasted into the provider's search box.
         if (!link.search) copyText(sender).then((ok) => ok && toast?.(`Copied ${sender} — paste it into ${p.label} search`));
@@ -256,8 +269,8 @@ export function AccountChip({ share, showCount = true, sender, toast }: {
   );
 }
 
-function SortHeader({ label, active, dir, align, onClick }: {
-  label: string; active: boolean; dir: Dir; align: "left" | "right"; onClick: () => void;
+function SortHeader({ label, active, dir, align, onClick, extra }: {
+  label: string; active: boolean; dir: Dir; align: "left" | "right"; onClick: () => void; extra?: React.ReactNode;
 }) {
   return (
     <th className={`px-2 py-2.5 ${align === "right" ? "text-right" : ""}`}
@@ -270,6 +283,7 @@ function SortHeader({ label, active, dir, align, onClick }: {
           <path d="M5 13 L9 8.5 H1 Z" fill="currentColor" opacity={active && dir === "desc" ? 1 : 0.25} />
         </svg>
       </button>
+      {extra}
     </th>
   );
 }
@@ -356,4 +370,19 @@ export function Avatar({ name }: { name: string }) {
       {name.trim()[0]?.toUpperCase() ?? "?"}
     </div>
   );
+}
+
+const FULL_KEY = "mailclean-account-labels";
+
+/** Short account names by default; the choice is remembered. */
+function useFullAccountLabels(): [boolean, (v: boolean) => void] {
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    try { setFull(localStorage.getItem(FULL_KEY) === "full"); } catch { /* default */ }
+  }, []);
+  const update = (v: boolean) => {
+    setFull(v);
+    try { localStorage.setItem(FULL_KEY, v ? "full" : "short"); } catch { /* not saved */ }
+  };
+  return [full, update];
 }

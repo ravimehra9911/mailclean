@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { isImapProvider, providerInfo, type ImapProviderId } from "@/lib/catalog";
 import { AddAccount, ProviderIcon } from "./AddAccount";
 import { ALL_TIME, DateFilter, rangeLabel, rangeParams, type DateRange } from "./DateFilter";
@@ -22,6 +22,18 @@ export default function Dashboard() {
   const [configured, setConfigured] = useState({ google: false, microsoft: false });
   const [about, setAbout] = useState({ version: "", dataDir: "", demo: false });
   const updates = useUpdates();
+
+  // Short account names for the senders table: the provider ("Gmail"), plus the part before "@"
+  // when two accounts use the same provider ("Gmail · work").
+  const accountLabels = useMemo(() => {
+    const short = (p: string) => providerInfo(p).label.replace(/ Mail$/, "");
+    const counts = new Map<string, number>();
+    for (const a of accounts ?? []) counts.set(short(a.provider), (counts.get(short(a.provider)) ?? 0) + 1);
+    return Object.fromEntries((accounts ?? []).map((a) => {
+      const p = short(a.provider);
+      return [a.email, (counts.get(p) ?? 0) > 1 ? `${p} · ${a.email.split("@")[0]}` : p];
+    }));
+  }, [accounts]);
 
   const runTour = useCallback(
     (kind: TourKind) => { startTour(kind, { setTab, hasAccounts: (accounts?.length ?? 0) > 0 }); },
@@ -174,13 +186,13 @@ export default function Dashboard() {
                   <VolumeChart daily={ov.daily} />
                 </Card>
                 <Card title="Top senders" sub="who fills your inbox" action={<button onClick={() => setTab("senders")} className="text-sm text-accent">View all →</button>}>
-                  <div data-tour="senders-table"><SendersTable accountId={accountId} range={range} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} /></div>
+                  <div data-tour="senders-table"><SendersTable accountId={accountId} accountLabels={accountLabels} range={range} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} /></div>
                 </Card>
               </div>
             )}
-            {tab === "senders" && <SendersTable accountId={accountId} range={range} refreshKey={refreshKey} onChanged={changed} toast={toast} />}
+            {tab === "senders" && <SendersTable accountId={accountId} accountLabels={accountLabels} range={range} refreshKey={refreshKey} onChanged={changed} toast={toast} />}
             {tab === "newsletters" && (
-              <SendersTable key="nl" accountId={accountId} range={range} initialFilter="newsletters" refreshKey={refreshKey} onChanged={changed} toast={toast} />
+              <SendersTable key="nl" accountId={accountId} accountLabels={accountLabels} range={range} initialFilter="newsletters" refreshKey={refreshKey} onChanged={changed} toast={toast} />
             )}
             {tab === "accounts" && <Accounts accounts={accounts} configured={configured} reload={changed} toast={toast} />}
           </>
