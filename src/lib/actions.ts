@@ -110,3 +110,97 @@ function isPrivate(ip: string): boolean {
   return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
     || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
 }
+
+export type UnsubMethod = "one-click" | "link" | "mailto" | "none";
+
+export interface UnsubPlan {
+  sender: string;
+  name: string | null;
+  /** one-click: done in the background (RFC 8058); link/mailto: the user finishes on the sender's page. */
+  method: UnsubMethod;
+  already: boolean;
+}
+
+/** How each sender can be unsubscribed, for the bulk-unsubscribe confirmation. */
+export function unsubscribePlan(senders: string[], alreadyExtra: string[] = []): UnsubPlan[] {
+  const best = db().prepare(
+    `SELECT m.unsub_http, m.unsub_mailto, m.one_click FROM messages m
+     WHERE m.from_email = ? AND (m.unsub_http IS NOT NULL OR m.unsub_mailto IS NOT NULL)
+     ORDER BY m.one_click DESC, m.date DESC LIMIT 1`,
+  );
+  const name = db().prepare("SELECT MAX(from_name) n FROM messages WHERE from_email = ?");
+  const done = db().prepare("SELECT 1 FROM unsubscribed WHERE from_email = ?");
+  return senders.map((sender) => {
+    const row = best.get(sender) as { unsub_http: string | null; unsub_mailto: string | null; one_click: number } | undefined;
+    const method: UnsubMethod = !row ? "none"
+      : row.one_click && row.unsub_http?.startsWith("https://") ? "one-click"
+      : row.unsub_http ? "link" : "mailto";
+    return {
+      sender,
+      name: (name.get(sender) as { n: string | null } | undefined)?.n ?? null,
+      method,
+      already: !!done.get(sender) || alreadyExtra.includes(sender),
+    };
+  });
+}
+
+/**
+ * Bulk unsubscribe: runs one-click unsubscribes in the background (a few at a time). Senders that only
+ * offer a web page are not touched here — the user opens those pages themselves after confirming.
+ * A failed one-click falls back to "link" so the user can still finish on the sender's page.
+ */
+export async function bulkUnsubscribe(senders: string[]): Promise<{
+  results: { sender: string; status: "done" | "failed" }[];
+  links: { sender: string; url: string }[];
+}> {
+  const plan = unsubscribePlan(senders).filter((p) => !p.already && p.method !== "none");
+  const { pool } = await import("./providers/types");
+  const oneClick = await pool(plan.filter((p) => p.method === "one-click"), 4, async (p) => {
+    try {
+      const r = await oneClickOnly(p.sender);
+      return { sender: p.sender, status: r ? "done" as const : "failed" as const };
+    } catch {
+      return { sender: p.sender, status: "failed" as const };
+    }
+  });
+  // Pages for the user to open: link/mailto senders, plus one-click senders that failed.
+  const failed = new Set(oneClick.filter((r) => r.status === "failed").map((r) => r.sender));
+  const links = plan
+    .filter((p) => p.method === "link" || p.method === "mailto" || failed.has(p.sender))
+    .map((p) => ({ sender: p.sender, url: unsubscribeUrl(p.sender) }))
+    .filter((l): l is { sender: string; url: string } => !!l.url);
+  return { results: oneClick, links };
+}
+
+/** The sender's unsubscribe page (https) or mailto link, if any. */
+export function unsubscribeUrl(sender: string): string | null {
+  const row = db().prepare(
+    `SELECT unsub_http, unsub_mailto FROM messages WHERE from_email = ? AND (unsub_http IS NOT NULL OR unsub_mailto IS NOT NULL)
+     ORDER BY date DESC LIMIT 1`,
+  ).get(sender) as { unsub_http: string | null; unsub_mailto: string | null } | undefined;
+  const url = row?.unsub_http ?? row?.unsub_mailto ?? null;
+  return url && /^(https?:|mailto:)/i.test(url) ? url : null;
+}
+
+/** One-click unsubscribe only (no fallback); marks the sender on success. */
+async function oneClickOnly(sender: string): Promise<boolean> {
+  const row = db().prepare(
+    `SELECT unsub_http FROM messages WHERE from_email = ? AND one_click = 1 AND unsub_http IS NOT NULL ORDER BY date DESC LIMIT 1`,
+  ).get(sender) as { unsub_http: string } | undefined;
+  if (!row || !(await isPublicHttps(row.unsub_http))) return false;
+  const res = await fetch(row.unsub_http, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "List-Unsubscribe=One-Click",
+    redirect: "manual",
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (res.status >= 400) return false;
+  db().prepare("INSERT OR REPLACE INTO unsubscribed (from_email, method, at) VALUES (?, 'one-click', ?)").run(sender, Date.now());
+  return true;
+}
+
+/** Records that the user opened a sender's unsubscribe page. */
+export function markUnsubscribed(sender: string, method: "link" | "mailto") {
+  db().prepare("INSERT OR REPLACE INTO unsubscribed (from_email, method, at) VALUES (?, ?, ?)").run(sender, method, Date.now());
+}

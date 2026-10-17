@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { mailboxLink, providerInfo } from "@/lib/catalog";
 import { api, fmtBytes, fmtDate, fmtNum, pct, type AccountShare, type Sender } from "./api";
 import { rangeParams, type DateRange } from "./DateFilter";
+import { BulkUnsubscribe } from "./BulkUnsubscribe";
 
 type Filter = "all" | "newsletters" | "mostly-unread";
 type Sort = "name" | "account" | "count" | "bytes" | "unread" | "last";
@@ -27,6 +28,7 @@ export function SendersTable(props: {
   const [data, setData] = useState<{ rows: Sender[]; total: number }>({ rows: [], total: 0 });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
+  const [unsubFor, setUnsubFor] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     const p = new URLSearchParams({ sort: sort.by, dir: sort.dir, filter, limit: String(pageSize), offset: String(page * pageSize) });
@@ -114,10 +116,17 @@ export function SendersTable(props: {
         </div>
       )}
 
+      {unsubFor && (
+        <BulkUnsubscribe senders={unsubFor} onClose={() => setUnsubFor(null)}
+          onDone={() => { setSelected(new Set()); onChanged(); }} />
+      )}
+
       {selected.size > 0 && (
         <div className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-3 rounded-xl bg-accent px-4 py-3 text-sm text-white shadow-lg">
           <span><b>{selected.size}</b> senders · {fmtNum(selCount)} emails · {fmtBytes(selBytes)}</span>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap gap-2">
+            <button disabled={!!busy} onClick={() => setUnsubFor([...selected])}
+              className="rounded-lg bg-white/15 px-3 py-1.5 hover:bg-white/25 disabled:opacity-50">Unsubscribe</button>
             <button disabled={!!busy} onClick={() => clean([...selected], "archive")}
               className="rounded-lg bg-white/15 px-3 py-1.5 hover:bg-white/25 disabled:opacity-50">Archive</button>
             <button disabled={!!busy} onClick={() => clean([...selected], "trash")}
@@ -157,6 +166,7 @@ export function SendersTable(props: {
                         <div className="flex min-w-0 items-center text-xs text-subtle">
                           <span className="truncate">{r.email}</span>
                           <CopyButton text={r.email} toast={toast} />
+                          <SearchButton sender={r.email} shares={r.byAccount} toast={toast} />
                         </div>
                       </div>
                     </div>
@@ -281,6 +291,33 @@ async function copyText(text: string): Promise<boolean> {
     ta.remove();
     return ok;
   }
+}
+
+/**
+ * Opens the user's webmail with this sender's emails searched. Uses the account with the most emails
+ * from the sender; the account labels in the row open a specific inbox.
+ */
+function SearchButton({ sender, shares, toast }: {
+  sender: string; shares: AccountShare[]; toast: (msg: string, kind?: "ok" | "err") => void;
+}) {
+  const top = shares[0];
+  const link = top ? mailboxLink(top.provider, top.email, sender) : null;
+  if (!top || !link) return null;
+  const p = providerInfo(top.provider);
+  const title = link.search
+    ? `Search ${p.label} (${top.email}) for emails from ${sender}`
+    : `Open ${p.label} — the address is copied so you can paste it into search`;
+  return (
+    <a href={link.url} target="_blank" rel="noopener noreferrer" title={title} aria-label={title}
+      onClick={() => {
+        if (!link.search) copyText(sender).then((ok) => ok && toast(`Copied ${sender} — paste it into ${p.label} search`));
+      }}
+      className="ml-0.5 grid size-5 shrink-0 place-items-center rounded text-subtle opacity-60 hover:bg-muted hover:text-ink hover:opacity-100">
+      <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+        <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+      </svg>
+    </a>
+  );
 }
 
 function CopyButton({ text, toast }: { text: string; toast: (msg: string, kind?: "ok" | "err") => void }) {
