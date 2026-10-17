@@ -13,6 +13,8 @@ if (!fs.existsSync(path.join(standalone, "server.js"))) {
 // The standalone server does not include static assets.
 fs.cpSync(path.join(root, ".next", "static"), path.join(standalone, ".next", "static"), { recursive: true });
 fs.cpSync(path.join(root, "public"), path.join(standalone, "public"), { recursive: true });
+// Website-only media (the hero demo video) isn't needed inside the desktop app.
+fs.rmSync(path.join(standalone, "public", "media"), { recursive: true, force: true });
 
 // Never ship local data or secrets inside the server folder.
 for (const name of fs.readdirSync(standalone)) {

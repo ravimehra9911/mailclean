@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Analytics, AnalyticsSettings } from "@/components/site/Analytics";
 import { getDownloadCounts, type InstallerKey } from "@/lib/downloads";
+import { HeroVideo } from "@/components/site/HeroVideo";
+import { PROVIDER_LOGOS } from "@/components/site/ProviderLogos";
 import { CleanupDemo, CountUp, Downloads, Reveal, ScrollProgress, SpotlightGrid, Tilt } from "@/components/site/Effects";
 
 // Landing page for the hosted website (served at "/" on Vercel; see src/middleware.ts).
@@ -56,7 +58,6 @@ const FEATURES = [
   { title: "Private by design", text: "Runs on your computer. Only sender, date and size are read — never subjects or message content." },
 ];
 
-const PROVIDERS = ["Gmail", "Yahoo Mail", "iCloud Mail", "AOL Mail", "Zoho Mail", "Any IMAP"];
 
 const SHOTS = [
   { src: "/screenshots/overview-dark.png", alt: "Overview with totals per account and emails received per week", caption: "Overview of every connected inbox" },
@@ -150,8 +151,8 @@ export default async function SitePage() {
           </p>
           <Tilt className="mx-auto mt-12 max-w-5xl">
             <div className="float overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-accent/20">
-              <img src="/screenshots/overview-dark.png" alt="MailClean overview showing totals per account and the top senders"
-                width={1440} height={900} className="w-full" />
+              <HeroVideo src="/media/mailclean-demo.mp4" poster="/screenshots/overview-dark.png"
+                alt="MailClean demo: filtering by year, sorting senders, trashing thousands of emails and unsubscribing" />
             </div>
           </Tilt>
         </section>
@@ -160,7 +161,9 @@ export default async function SitePage() {
         <section className="border-y border-line bg-card/60">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 py-6 text-sm text-subtle">
             <span className="font-medium text-ink">Works with</span>
-            {PROVIDERS.map((p) => <span key={p}>{p}</span>)}
+            {PROVIDER_LOGOS.map((p) => (
+              <span key={p.name} className="flex items-center gap-2 transition hover:text-ink">{p.logo}{p.name}</span>
+            ))}
           </div>
         </section>
 
