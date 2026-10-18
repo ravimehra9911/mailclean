@@ -71,16 +71,24 @@ const STATS = [
 const FEATURES = [
   { title: "See who fills your inbox", text: "Every sender ranked by number of emails, storage used and how much you never open." },
   { title: "Clean up in one click", text: "Select senders and move thousands of emails to Trash or Archive at once. Nothing is permanently deleted." },
-  { title: "Unsubscribe instantly", text: "One-click unsubscribe where the sender supports it, or straight to their unsubscribe page." },
-  { title: "Filter by date & Gmail tab", text: "Look at a whole year or any date range, or just Gmail's Promotions, Updates or Social tab — and clean only that." },
-  { title: "All your accounts together", text: "Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox in one dashboard, with per-account labels." },
-  { title: "Private by design", text: "Runs on your computer. Only sender, date and size are read — never subjects or message content." },
+  { title: "Bulk unsubscribe", text: "Pick dozens of newsletters and unsubscribe from all of them. You see exactly what will happen before you confirm." },
+  { title: "Gmail tabs", text: "Filter by Promotions, Updates, Social, Forums or Purchases, and see which tab each sender lands in.", isNew: true },
+  { title: "Keep what matters", text: "Starred and important emails are left alone when you clean up — on by default.", isNew: true },
+  { title: "Filter by date", text: "Look at a whole year, the last 30 days or any start and end date — and clean only that period." },
+  { title: "All your accounts together", text: "Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox in one dashboard, with short account labels." },
+  { title: "Jump to your webmail", text: "One click opens Gmail searched for that sender, or copies the address for Yahoo and others." },
+  { title: "Private by design", text: "Runs on your computer. Only sender, date, size and flags are read — never subjects or message content." },
 ];
+
+// Shown as a pill in the hero; update with each feature release.
+const WHATS_NEW = { version: "1.4", text: "Filter by Gmail tabs · keep starred & important", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.4.0" };
 
 
 const SHOTS = [
-  { src: "/screenshots/overview-dark.png", alt: "Overview with totals per account and emails received per week", caption: "Overview of every connected inbox" },
-  { src: "/screenshots/senders-light.png", alt: "Sender table sorted by number of emails with account labels", caption: "Senders, sortable by any column" },
+  { src: "/screenshots/overview-dark.png", alt: "Overview with totals per account and emails per Gmail tab", caption: "Overview of every inbox and Gmail tab" },
+  { src: "/screenshots/senders-light.png", alt: "Sender table sorted by number of emails with account and Gmail tab labels", caption: "Senders, sortable by any column" },
+  { src: "/screenshots/gmail-promotions-dark.png", alt: "Senders filtered to Gmail's Promotions tab", caption: "Clean just your Promotions tab" },
+  { src: "/screenshots/bulk-unsubscribe-light.png", alt: "Bulk unsubscribe dialog listing what will happen for each sender", caption: "Bulk unsubscribe, reviewed before it runs" },
   { src: "/screenshots/filter-dark.png", alt: "Dashboard filtered to a single year", caption: "Filter by year or custom dates" },
   { src: "/screenshots/add-account-light.png", alt: "Add account screen with provider picker and app-password steps", caption: "Connect with an app password" },
 ];
@@ -92,7 +100,19 @@ const FAQ = [
   },
   {
     q: "Does MailClean read my emails?",
-    a: "No. It reads only each email's sender, date, size, read status and the sender's unsubscribe link. Subjects, message text and attachments are never downloaded, and nothing is sent to any MailClean server — there isn't one.",
+    a: "No. It reads only each email's sender, date, size, read/starred status, Gmail tab and the sender's unsubscribe link. Subjects, message text and attachments are never downloaded, and nothing is sent to any MailClean server — there isn't one.",
+  },
+  {
+    q: "Can I clean only my Gmail Promotions tab?",
+    a: "Yes. Pick Promotions (or Updates, Social, Forums, Purchases) in the category filter and everything — totals, senders and clean-ups — covers only that tab. Other providers have no tabs, so the filter applies to Gmail mail.",
+  },
+  {
+    q: "Will it delete my starred or important emails?",
+    a: "No. “Keep starred & important” is on by default: when you trash or archive a sender, emails you starred or Gmail marked important stay where they are. You can turn it off on the Senders page.",
+  },
+  {
+    q: "How does bulk unsubscribe work?",
+    a: "Select the senders and click Unsubscribe. MailClean first shows which ones it can unsubscribe automatically (one-click, RFC 8058) and which need you to confirm on the sender's page, then does the automatic ones and gives you a button for each of the rest.",
   },
   {
     q: "Why an app password instead of “Sign in with Google”?",
@@ -148,15 +168,22 @@ export default async function SitePage() {
             <div className="hero-glow top-40 right-[8%] size-80 bg-[#c084fc]" style={{ animationDelay: "-6s" }} />
             <div className="hero-glow top-[28rem] left-[35%] size-96 bg-[#60a5fa]" style={{ animationDelay: "-12s" }} />
           </div>
-          <a href={REPO} data-track="github" className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-subtle hover:text-ink">
-            <GitHubIcon className="size-3.5" /> Free &amp; open source · MIT license
-          </a>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <a href={WHATS_NEW.href} data-track="whats_new" className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-xs hover:border-accent">
+              <span className="rounded-full bg-accent px-1.5 py-px text-[10px] font-semibold text-white">NEW {WHATS_NEW.version}</span>
+              {WHATS_NEW.text} →
+            </a>
+            <a href={REPO} data-track="github" className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-subtle hover:text-ink">
+              <GitHubIcon className="size-3.5" /> Free &amp; open source · MIT license
+            </a>
+          </div>
           <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">
             Clean up every inbox <span className="shimmer-text">in one place</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-subtle">
-            See which senders fill your Gmail, Yahoo and iCloud inboxes, unsubscribe from newsletters and clear
-            thousands of emails in a click. Everything runs on your computer — your email never leaves it.
+            See which senders fill your Gmail, Yahoo and iCloud inboxes, sort them by Gmail tab, unsubscribe from
+            newsletters in bulk and clear thousands of emails in a click. Everything runs on your computer — your
+            email never leaves it.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <a href="#download" data-track="cta_download" className="inline-flex h-12 items-center rounded-xl bg-accent px-6 font-medium text-white shadow-lg shadow-accent/25 hover:opacity-90">
@@ -215,7 +242,10 @@ export default async function SitePage() {
             {FEATURES.map((f, i) => (
               <Reveal key={f.title} delay={(i % 3) * 100}>
                 <div className="spot relative h-full overflow-hidden rounded-2xl border border-line bg-card p-6 transition hover:-translate-y-1 hover:border-accent/50 hover:shadow-xl">
-                  <h3 className="relative font-semibold">{f.title}</h3>
+                  <h3 className="relative flex items-center gap-2 font-semibold">
+                    {f.title}
+                    {"isNew" in f && f.isNew && <span className="rounded-full bg-accent/15 px-2 py-px text-[10px] font-semibold text-accent">NEW</span>}
+                  </h3>
                   <p className="relative mt-2 text-sm leading-relaxed text-subtle">{f.text}</p>
                 </div>
               </Reveal>
@@ -251,7 +281,7 @@ export default async function SitePage() {
             {[
               ["Download MailClean", "Install the free app for macOS, Windows or Linux."],
               ["Create an app password", "MailClean shows the exact steps for Gmail, Yahoo, iCloud and others."],
-              ["Clean up", "See your biggest senders, unsubscribe and clear thousands of emails at once."],
+              ["Clean up", "See your biggest senders and Gmail tabs, unsubscribe in bulk and clear thousands of emails at once."],
             ].map(([t, d], i) => (
               <li key={t}>
                 <Reveal delay={i * 120} className="h-full">
@@ -279,7 +309,8 @@ export default async function SitePage() {
             <ul className="space-y-3 text-sm">
               {[
                 "No MailClean server, account or tracking",
-                "Reads only sender, date and size — never subjects or content",
+                "Reads only sender, date, size and flags — never subjects or content",
+                "Starred and important emails are kept when you clean up",
                 "Passwords encrypted on your device (AES-256-GCM)",
                 "Nothing permanently deleted — Trash keeps mail for ~30 days",
                 "Open source: anyone can check the code",

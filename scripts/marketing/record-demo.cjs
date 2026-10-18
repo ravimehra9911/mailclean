@@ -157,6 +157,10 @@ app.whenReady().then(async () => {
 
   await js(`__d.caption("See exactly who fills your inbox"); await __d.click(__d.find("nav button", "Senders"))`);
   await sleep(2000);
+  await js(`__d.caption("Filter by Gmail tab — clean just Promotions"); const c = __d.find('select[aria-label="Gmail category"]'); await __d.click(c); __d.select(c, "promotions")`);
+  await sleep(2600);
+  await js(`__d.select(__d.find('select[aria-label="Gmail category"]'), "")`);
+  await sleep(600);
   await js(`__d.caption("Sort by any column ▲▼"); await __d.click(__d.find("button", "Size"))`);
   await sleep(1800);
   await js(`await __d.click(__d.find("button", "Emails"))`);

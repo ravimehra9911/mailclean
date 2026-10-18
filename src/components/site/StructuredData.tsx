@@ -41,13 +41,17 @@ export function StructuredData({ faq, version }: { faq: { q: string; a: string }
         screenshot: [
           `${SITE_URL}/screenshots/overview-dark.png`,
           `${SITE_URL}/screenshots/senders-light.png`,
+          `${SITE_URL}/screenshots/gmail-promotions-dark.png`,
+          `${SITE_URL}/screenshots/bulk-unsubscribe-light.png`,
           `${SITE_URL}/screenshots/add-account-light.png`,
         ],
         featureList: [
           "See which senders fill your inbox by email count, storage and unread rate",
           "Bulk move thousands of emails to Trash or Archive",
-          "One-click unsubscribe (RFC 8058 List-Unsubscribe)",
+          "One-click and bulk unsubscribe (RFC 8058 List-Unsubscribe)",
           "Filter by year or custom date range",
+          "Filter by Gmail tab: Primary, Promotions, Social, Updates, Forums, Purchases",
+          "Keeps starred and important emails when cleaning",
           "Gmail, Yahoo Mail, iCloud Mail, AOL, Zoho and any IMAP mailbox",
           "Runs locally: email is never uploaded to a server",
         ],

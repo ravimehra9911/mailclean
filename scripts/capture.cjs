@@ -22,6 +22,9 @@ const hideBanner = `[...document.querySelectorAll("main > div")].find((d) => d.t
 const SHOTS = [
   { name: "overview-dark", theme: "dark", steps: [] },
   { name: "senders-light", theme: "light", steps: [clickText("Senders")] },
+  { name: "gmail-promotions-dark", theme: "dark", steps: [clickText("Senders"), setSelect("Gmail category", "promotions")] },
+  { name: "bulk-unsubscribe-light", theme: "light", steps: [clickText("Newsletters"),
+    `[...document.querySelectorAll("tbody input[type=checkbox]")].slice(0, 5).forEach((c) => c.click())`, clickText("Unsubscribe")] },
   { name: "filter-dark", theme: "dark", steps: [setSelect("Date range", `year:${new Date().getFullYear() - 1}`)] },
   { name: "add-account-light", theme: "light", steps: [clickText("Accounts"), clickText("Gmail")] },
 ];
