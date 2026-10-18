@@ -1,5 +1,5 @@
 import { ImapFlow, type ListResponse } from "imapflow";
-import type { MessageMeta } from "../db";
+import { CATEGORY_PRIORITY, type GmailCategory, type MessageMeta } from "../db";
 import { parseListUnsubscribe } from "../headers";
 import { chunk } from "./types";
 
@@ -97,6 +97,19 @@ export function headerValue(raw: string, name: string) {
   return m?.[1].replace(/\r?\n[ \t]+/g, " ").trim();
 }
 
+/**
+ * Gmail tab of every message in All Mail, by UID. Gmail doesn't expose its tabs as IMAP labels, but its own
+ * search does ("category:promotions"), so we ask once per tab. Messages in no other tab are Primary.
+ */
+async function gmailCategories(c: ImapFlow): Promise<Map<number, GmailCategory>> {
+  const byUid = new Map<number, GmailCategory>();
+  for (const cat of CATEGORY_PRIORITY) {
+    const uids = await c.search({ gmraw: `category:${cat}` }, { uid: true });
+    for (const uid of uids || []) if (!byUid.has(uid)) byUid.set(uid, cat);
+  }
+  return byUid;
+}
+
 /** Connects, turning failures into readable errors. */
 async function open(cfg: ImapConfig): Promise<ImapFlow> {
   const c = client(cfg);
@@ -141,10 +154,14 @@ export async function imapSync(
       // Use the count visible after opening the folder: Yahoo/AOL report the full size in STATUS
       // but only expose the newest 10,000 messages once selected.
       let exists = 0;
+      let categories: Map<number, GmailCategory> | null = null;
       for (let attempt = 0; ; attempt++) {
         try {
           const lock = await c.getMailboxLock(f.path, { readOnly: true });
-          try { exists = c.mailbox ? c.mailbox.exists : 0; } finally { lock.release(); }
+          try {
+            exists = c.mailbox ? c.mailbox.exists : 0;
+            if (allMail && exists) categories = await gmailCategories(c);
+          } finally { lock.release(); }
           break;
         } catch (e) {
           if (attempt >= 3 || !isConnectionError(e)) throw e;
@@ -188,6 +205,9 @@ export async function imapSync(
                   unsub_http: unsub.http,
                   unsub_mailto: unsub.mailto,
                   one_click: unsub.oneClick,
+                  category: categories ? categories.get(m.uid) ?? "primary" : null,
+                  starred: !!m.flags?.has("\\Flagged"),
+                  important: labels.has("\\Important"),
                 });
               }
             } finally {

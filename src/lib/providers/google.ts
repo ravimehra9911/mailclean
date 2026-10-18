@@ -1,4 +1,4 @@
-import type { MessageMeta } from "../db";
+import { CATEGORY_PRIORITY, type MessageMeta } from "../db";
 import { parseFrom, parseListUnsubscribe } from "../headers";
 import { APP_URL, chunk, fetchJson, HttpError, isQuotaError, pool, RateLimiter, type MailProvider, type TokenSet } from "./types";
 
@@ -34,6 +34,10 @@ function toMeta(m: GmailMessage): MessageMeta {
     unsub_http: unsub.http,
     unsub_mailto: unsub.mailto,
     one_click: unsub.oneClick,
+    // Gmail API labels: CATEGORY_PROMOTIONS etc.; anything else is Primary (CATEGORY_PERSONAL).
+    category: CATEGORY_PRIORITY.find((c) => labels.includes(`CATEGORY_${c.toUpperCase()}`)) ?? "primary",
+    starred: labels.includes("STARRED"),
+    important: labels.includes("IMPORTANT"),
   };
 }
 

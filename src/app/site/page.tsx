@@ -72,7 +72,7 @@ const FEATURES = [
   { title: "See who fills your inbox", text: "Every sender ranked by number of emails, storage used and how much you never open." },
   { title: "Clean up in one click", text: "Select senders and move thousands of emails to Trash or Archive at once. Nothing is permanently deleted." },
   { title: "Unsubscribe instantly", text: "One-click unsubscribe where the sender supports it, or straight to their unsubscribe page." },
-  { title: "Filter by date", text: "Look at a whole year, the last 30 days, or any start and end date — and clean only that period." },
+  { title: "Filter by date & Gmail tab", text: "Look at a whole year or any date range, or just Gmail's Promotions, Updates or Social tab — and clean only that." },
   { title: "All your accounts together", text: "Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox in one dashboard, with per-account labels." },
   { title: "Private by design", text: "Runs on your computer. Only sender, date and size are read — never subjects or message content." },
 ];

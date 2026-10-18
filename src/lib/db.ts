@@ -74,6 +74,12 @@ export function db(): DatabaseSyncType {
     if (!cols.includes("imap_host")) d.exec("ALTER TABLE accounts ADD COLUMN imap_host TEXT");
     if (!cols.includes("imap_port")) d.exec("ALTER TABLE accounts ADD COLUMN imap_port INTEGER");
     if (!cols.includes("imap_user")) d.exec("ALTER TABLE accounts ADD COLUMN imap_user TEXT");
+    // Gmail categories and flags (v1.4). NULL category = not Gmail, or scanned before v1.4.
+    const mcols = (d.prepare("PRAGMA table_info(messages)").all() as { name: string }[]).map((c) => c.name);
+    if (!mcols.includes("category")) d.exec("ALTER TABLE messages ADD COLUMN category TEXT");
+    if (!mcols.includes("starred")) d.exec("ALTER TABLE messages ADD COLUMN starred INTEGER NOT NULL DEFAULT 0");
+    if (!mcols.includes("important")) d.exec("ALTER TABLE messages ADD COLUMN important INTEGER NOT NULL DEFAULT 0");
+    d.exec("CREATE INDEX IF NOT EXISTS idx_messages_category ON messages(category)");
     // A scan can't survive a server restart; let the user resume it (stored emails are skipped).
     d.prepare("UPDATE accounts SET sync_status = 'error', sync_error = 'Scan was interrupted — click Rescan to continue' WHERE sync_status = 'syncing'").run();
     g.__mailcleanDb = d;
@@ -114,7 +120,21 @@ export interface MessageMeta {
   unsub_http: string | null;
   unsub_mailto: string | null;
   one_click: boolean;
+  /** Gmail tab (see GMAIL_CATEGORIES); null for other providers. */
+  category?: GmailCategory | null;
+  starred?: boolean;
+  important?: boolean;
 }
+
+/** Gmail's inbox tabs, in the order Gmail shows them. */
+export const GMAIL_CATEGORIES = ["primary", "promotions", "social", "updates", "forums", "purchases"] as const;
+export type GmailCategory = (typeof GMAIL_CATEGORIES)[number];
+/**
+ * Gmail can put one email in several tabs (e.g. a receipt is in both Purchases and Updates). We keep one,
+ * checking the most specific first.
+ */
+export const CATEGORY_PRIORITY: readonly Exclude<GmailCategory, "primary">[] = ["purchases", "social", "forums", "promotions", "updates"];
+export const isGmailCategory = (c: unknown): c is GmailCategory => GMAIL_CATEGORIES.includes(c as GmailCategory);
 
 export function getAccount(id: string): AccountRow | undefined {
   return db().prepare("SELECT * FROM accounts WHERE id = ?").get(id) as AccountRow | undefined;
@@ -134,13 +154,14 @@ export function updateAccount(id: string, fields: Partial<AccountRow>) {
 export function insertMessages(accountId: string, rows: MessageMeta[]) {
   const d = db();
   const stmt = d.prepare(`INSERT OR REPLACE INTO messages
-    (account_id, msg_id, from_email, from_name, date, size, unread, in_inbox, unsub_http, unsub_mailto, one_click)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    (account_id, msg_id, from_email, from_name, date, size, unread, in_inbox, unsub_http, unsub_mailto, one_click, category, starred, important)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   d.exec("BEGIN");
   try {
     for (const r of rows) {
       stmt.run(accountId, r.msg_id, r.from_email, r.from_name, r.date, r.size,
-        r.unread ? 1 : 0, r.in_inbox ? 1 : 0, r.unsub_http, r.unsub_mailto, r.one_click ? 1 : 0);
+        r.unread ? 1 : 0, r.in_inbox ? 1 : 0, r.unsub_http, r.unsub_mailto, r.one_click ? 1 : 0,
+        r.category ?? null, r.starred ? 1 : 0, r.important ? 1 : 0);
     }
     d.exec("COMMIT");
   } catch (e) {

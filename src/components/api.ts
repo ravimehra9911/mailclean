@@ -1,5 +1,7 @@
 // Client-side types and fetch helpers shared by the dashboard components.
 
+import type { GmailCategory } from "./categories";
+
 export interface Account {
   id: string;
   provider: string; // see providerInfo() in src/lib/catalog.ts
@@ -23,6 +25,7 @@ export interface Overview {
   daily: { day: string; count: number }[];
   byAccount: AccountShare[];
   years: number[];
+  categories: { category: GmailCategory; count: number; unread: number }[];
 }
 
 export interface AccountShare {
@@ -48,6 +51,8 @@ export interface Sender {
   byAccount: AccountShare[];
   can_unsub: number;
   unsubscribed: number;
+  category: GmailCategory | null;
+  category_share: number;
 }
 
 export async function api<T>(url: string, init?: RequestInit & { json?: unknown }): Promise<T> {

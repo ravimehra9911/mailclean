@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, isGmailCategory, type GmailCategory } from "./db";
 
 export interface Overview {
   emails: number;
@@ -12,6 +12,8 @@ export interface Overview {
   byAccount: AccountShare[];
   /** Years that have mail (for the date filter), newest first. */
   years: number[];
+  /** Emails per Gmail tab in this scope (ignoring the category filter); empty when no Gmail data. */
+  categories: { category: GmailCategory; count: number; unread: number }[];
 }
 
 export interface AccountShare {
@@ -36,6 +38,9 @@ export interface SenderRow {
   byAccount: AccountShare[]; // how many of this sender's emails are in each connected account
   can_unsub: number;
   unsubscribed: number;
+  /** The Gmail tab most of this sender's emails land in, and the share of their Gmail emails in it. */
+  category: GmailCategory | null;
+  category_share: number;
 }
 
 /** Which messages a query covers: one account or all, and an optional date range (epoch ms, `to` exclusive). */
@@ -45,6 +50,8 @@ export interface Scope {
   to?: number;
   /** Senders to leave out (the web demo's per-visitor "trashed" list). */
   exclude?: string[];
+  /** Only emails in this Gmail tab. */
+  category?: GmailCategory;
 }
 
 /** SQL conditions on `messages m` for a scope, with their parameters. */
@@ -54,6 +61,7 @@ export function scopeSql(s: Scope, alias = "m"): { conds: string[]; args: (strin
   if (s.accountId) { conds.push(`${alias}.account_id = ?`); args.push(s.accountId); }
   if (s.from !== undefined) { conds.push(`${alias}.date >= ?`); args.push(s.from); }
   if (s.to !== undefined) { conds.push(`${alias}.date < ?`); args.push(s.to); }
+  if (s.category) { conds.push(`${alias}.category = ?`); args.push(s.category); }
   if (s.exclude?.length) { conds.push(`${alias}.from_email NOT IN (${s.exclude.map(() => "?").join(",")})`); args.push(...s.exclude); }
   return { conds, args };
 }
@@ -83,7 +91,7 @@ export function overview(scope: Scope): Overview {
     ${whereOf(chart.conds)} GROUP BY day ORDER BY day`).all(...chart.args) as { day: string; count: number }[];
 
   // Per-account totals: date conditions go in the JOIN so accounts with no mail in range still show.
-  const dates = scopeSql({ from: scope.from, to: scope.to, exclude: scope.exclude });
+  const dates = scopeSql({ from: scope.from, to: scope.to, exclude: scope.exclude, category: scope.category });
   const byAccount = d.prepare(`SELECT acc.id account_id, acc.provider, acc.email, COUNT(m.msg_id) count,
     COALESCE(SUM(m.size),0) bytes, COALESCE(SUM(m.unread),0) unread
     FROM accounts acc LEFT JOIN messages m ON m.account_id = acc.id ${dates.conds.map((c) => `AND ${c}`).join(" ")}
@@ -94,6 +102,10 @@ export function overview(scope: Scope): Overview {
   const years = (d.prepare(`SELECT DISTINCT CAST(strftime('%Y', date / 1000, 'unixepoch', 'localtime') AS INTEGER) y
     FROM messages m ${whereOf(acc.conds)} ORDER BY y DESC`).all(...acc.args) as { y: number }[]).map((r) => r.y)
     .filter((y) => y >= 1995); // emails with missing dates show up as 1970
+
+  const cat = scopeSql({ ...scope, category: undefined });
+  const categories = d.prepare(`SELECT category, COUNT(*) count, SUM(unread) unread FROM messages m
+    ${whereOf(cat.conds, ["category IS NOT NULL"])} GROUP BY category ORDER BY count DESC`).all(...cat.args) as unknown as Overview["categories"];
 
   return {
     emails: totals.emails,
@@ -106,6 +118,7 @@ export function overview(scope: Scope): Overview {
     daily,
     byAccount,
     years,
+    categories,
   };
 }
 
@@ -149,7 +162,7 @@ export function senders(opts: Scope & {
   const rows = d.prepare(`${base} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...args, limit, offset) as unknown as SenderRow[];
 
   // Per-account counts for the senders on this page (same scope).
-  for (const r of rows) r.byAccount = [];
+  for (const r of rows) { r.byAccount = []; r.category = null; r.category_share = 0; }
   if (rows.length) {
     const s = scopeSql(opts);
     const marks = rows.map(() => "?").join(",");
@@ -161,15 +174,26 @@ export function senders(opts: Scope & {
       .all(...s.args, ...rows.map((r) => r.email)) as unknown as (AccountShare & { from_email: string })[];
     const byEmail = new Map(rows.map((r) => [r.email, r]));
     for (const { from_email, ...sh } of split) byEmail.get(from_email)?.byAccount.push(sh);
+
+    // Main Gmail tab per sender (rows come largest first, so the first one per sender wins).
+    const cats = d.prepare(`SELECT m.from_email, m.category, COUNT(*) n, SUM(COUNT(*)) OVER (PARTITION BY m.from_email) total
+      FROM messages m ${whereOf(s.conds, [`m.from_email IN (${marks})`, "m.category IS NOT NULL"])}
+      GROUP BY m.from_email, m.category ORDER BY n DESC`)
+      .all(...s.args, ...rows.map((r) => r.email)) as { from_email: string; category: GmailCategory; n: number; total: number }[];
+    for (const c of cats) {
+      const r = byEmail.get(c.from_email);
+      if (r && !r.category) { r.category = c.category; r.category_share = c.n / c.total; }
+    }
   }
   return { rows, total };
 }
 
-/** Parses `account`, `from` and `to` query parameters into a Scope. */
+/** Parses `account`, `from`, `to` and `category` query parameters into a Scope. */
 export function scopeFromParams(p: URLSearchParams): Scope {
   const num = (k: string) => {
     const v = Number(p.get(k));
     return p.get(k) && Number.isFinite(v) ? v : undefined;
   };
-  return { accountId: p.get("account") || undefined, from: num("from"), to: num("to") };
+  const category = p.get("category");
+  return { accountId: p.get("account") || undefined, from: num("from"), to: num("to"), category: isGmailCategory(category) ? category : undefined };
 }

@@ -101,7 +101,7 @@ export function PrivacyPage({ dataDir }: { dataDir: string }) {
   const sections = [
     {
       title: "What MailClean reads",
-      body: <>For each email only the sender, date, size, read/inbox status and the sender&apos;s unsubscribe link. Subjects, message text and attachments are never downloaded.</>,
+      body: <>For each email only the sender, date, size, read/inbox/starred status, Gmail tab (Promotions, Updates…) and the sender&apos;s unsubscribe link. Subjects, message text and attachments are never downloaded.</>,
     },
     {
       title: "Where your data lives",

@@ -94,18 +94,19 @@ export async function accessToken(id: string): Promise<string> {
 const running = ((globalThis as { __mailcleanSyncs?: Set<string> }).__mailcleanSyncs ??= new Set());
 
 /** Starts a background sync. Returns false if one is already running. */
-export function startSync(id: string): boolean {
+export function startSync(id: string, opts: { refetch?: boolean } = {}): boolean {
   const a = getAccount(id);
   if (!a || running.has(id) || isDemo()) return false;
   running.add(id);
   updateAccount(id, { sync_status: "syncing", sync_error: null, synced: 0 });
-  runSync(a).finally(() => running.delete(id));
+  runSync(a, opts.refetch).finally(() => running.delete(id));
   return true;
 }
 
-async function runSync(a: AccountRow) {
+/** `refetch` re-reads stored emails too (the Gmail API sync normally skips them), e.g. to fill in new fields. */
+async function runSync(a: AccountRow, refetch = false) {
   const limit = Number(process.env.SYNC_LIMIT) || 50_000;
-  const known = new Set(
+  const known = new Set(refetch ? [] :
     (db().prepare("SELECT msg_id FROM messages WHERE account_id = ?").all(a.id) as { msg_id: string }[]).map((r) => r.msg_id),
   );
   const seen = new Set<string>();
@@ -163,19 +164,25 @@ export async function moveMessages(a: AccountRow, ids: string[], action: "trash"
   return providers[a.provider][action](await accessToken(a.id), ids);
 }
 
+const imapHost = (a: AccountRow) => (isImap(a.provider) ? a.imap_host || IMAP_PROVIDERS[a.provider].host || "" : "");
+const isGmail = (a: AccountRow) => a.provider === "google" || /(^|\.)gmail\.com$/i.test(imapHost(a));
+
 /**
- * One-time rescan of Yahoo/AOL accounts scanned before v1.3.3: those servers returned no
- * List-Unsubscribe data until MailClean started reading full headers (see ImapConfig.fullHeaders).
+ * One-time rescans after an update that reads more from each email:
+ * - header-fix-v1 (v1.3.3): Yahoo/AOL returned no List-Unsubscribe data until MailClean read full headers.
+ * - gmail-categories-v1 (v1.4): Gmail tabs (Promotions, Social, …), starred and important.
  */
-export function rescanForHeaderFix() {
+export function rescanAfterUpdate() {
   if (isDemo()) return;
   const d = db();
   for (const a of d.prepare("SELECT * FROM accounts").all() as unknown as AccountRow[]) {
-    if (!isImap(a.provider) || !/(^|\.)(yahoo|aol)\.com$/i.test(a.imap_host || IMAP_PROVIDERS[a.provider].host || "")) continue;
-    const key = `header-fix-v1:${a.id}`;
-    if (d.prepare("SELECT 1 FROM kv WHERE k = ?").get(key)) continue;
-    d.prepare("INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)").run(key, String(Date.now()));
-    if (a.sync_status !== "syncing") startSync(a.id);
+    const keys = [
+      /(^|\.)(yahoo|aol)\.com$/i.test(imapHost(a)) && `header-fix-v1:${a.id}`,
+      isGmail(a) && `gmail-categories-v1:${a.id}`,
+    ].filter((k): k is string => !!k && !d.prepare("SELECT 1 FROM kv WHERE k = ?").get(k));
+    if (!keys.length || a.sync_status === "syncing") continue;
+    for (const k of keys) d.prepare("INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)").run(k, String(Date.now()));
+    startSync(a.id, { refetch: a.provider === "google" });
   }
 }
 

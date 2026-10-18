@@ -12,6 +12,7 @@ import { IconRefresh } from "./Icons";
 import { UpdateBanner, useUpdates } from "./Updates";
 import { api, fmtBytes, fmtNum, pct, type Account, type Overview } from "./api";
 import { AccountChip, SendersTable } from "./SendersTable";
+import { CATEGORY_INFO, CategoryFilter, type GmailCategory } from "./categories";
 import { VolumeChart } from "./VolumeChart";
 
 type Toast = { msg: string; kind: "ok" | "err" } | null;
@@ -50,6 +51,8 @@ export default function Dashboard() {
   }, [loaded]);
   const [accountId, setAccountId] = useState("");
   const [range, setRange] = useState<DateRange>(ALL_TIME);
+  const [category, setCategory] = useState<GmailCategory | "">("");
+  const [keepFlagged, setKeepFlagged] = useKeepFlagged();
   const [ov, setOv] = useState<Overview | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [toastState, setToast] = useState<Toast>(null);
@@ -82,10 +85,11 @@ export default function Dashboard() {
     if (accounts?.length) {
       const p = new URLSearchParams();
       if (accountId) p.set("account", accountId);
+      if (category) p.set("category", category);
       rangeParams(p, range);
       api<Overview>(`/api/overview?${p}`).then(setOv).catch((e) => toast(e.message, "err"));
     }
-  }, [accounts?.length, accountId, range, refreshKey, toast]);
+  }, [accounts?.length, accountId, range, category, refreshKey, toast]);
 
   // Refresh when the window regains focus, e.g. after finishing sign-in in the system browser.
   useEffect(() => {
@@ -136,6 +140,7 @@ export default function Dashboard() {
               {tab !== "accounts" && (
                 <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                   <DateFilter value={range} years={ov?.years ?? []} onChange={setRange} />
+                  <CategoryFilter value={category} options={ov?.categories ?? []} onChange={setCategory} />
                   <select data-tour="account-filter" aria-label="Account" value={accountId} onChange={(e) => setAccountId(e.target.value)}
                     className="h-9 rounded-lg border border-line bg-card px-2 text-sm">
                     <option value="">All accounts ({accounts.length})</option>
@@ -182,17 +187,25 @@ export default function Dashboard() {
                   <Stat label="Unread" value={pct(ov.emails ? ov.unread / ov.emails : 0)} sub={`${fmtNum(ov.unread)} emails`} />
                   <Stat label="Newsletters" value={fmtNum(ov.newsletters)} sub={`of ${fmtNum(ov.senders)} senders`} />
                 </div>
+                {ov.categories.length > 0 && (
+                  <Card title="Gmail tabs" sub={category ? `showing ${CATEGORY_INFO[category].label} only` : "click one to filter everything by it"}
+                    action={category && <button onClick={() => setCategory("")} className="text-sm text-accent">Show all</button>}>
+                    <GmailTabs categories={ov.categories} selected={category} onSelect={setCategory} />
+                  </Card>
+                )}
                 <Card title="Emails received" sub={`per week, ${rangeLabel(range) ?? "last 6 months"}`}>
                   <VolumeChart daily={ov.daily} />
                 </Card>
                 <Card title="Top senders" sub="who fills your inbox" action={<button onClick={() => setTab("senders")} className="text-sm text-accent">View all →</button>}>
-                  <div data-tour="senders-table"><SendersTable accountId={accountId} accountLabels={accountLabels} range={range} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} /></div>
+                  <div data-tour="senders-table"><SendersTable accountId={accountId} accountLabels={accountLabels} range={range} category={category} keepFlagged={keepFlagged} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} /></div>
                 </Card>
               </div>
             )}
-            {tab === "senders" && <SendersTable accountId={accountId} accountLabels={accountLabels} range={range} refreshKey={refreshKey} onChanged={changed} toast={toast} />}
+            {tab === "senders" && <SendersTable accountId={accountId} accountLabels={accountLabels} range={range} category={category}
+              keepFlagged={keepFlagged} setKeepFlagged={setKeepFlagged} refreshKey={refreshKey} onChanged={changed} toast={toast} />}
             {tab === "newsletters" && (
-              <SendersTable key="nl" accountId={accountId} accountLabels={accountLabels} range={range} initialFilter="newsletters" refreshKey={refreshKey} onChanged={changed} toast={toast} />
+              <SendersTable key="nl" accountId={accountId} accountLabels={accountLabels} range={range} category={category}
+                keepFlagged={keepFlagged} setKeepFlagged={setKeepFlagged} initialFilter="newsletters" refreshKey={refreshKey} onChanged={changed} toast={toast} />
             )}
             {tab === "accounts" && <Accounts accounts={accounts} configured={configured} reload={changed} toast={toast} />}
           </>
@@ -218,6 +231,49 @@ function Summary({ ov, period, onMostlyUnread }: { ov: Overview; period: string 
         {ov.mostlyUnreadSenders} senders are ≥90% unread →</button></>}
     </div>
   );
+}
+
+/** One tile per Gmail tab: how much mail it holds and how much of it is unread. */
+function GmailTabs({ categories, selected, onSelect }: {
+  categories: Overview["categories"]; selected: GmailCategory | ""; onSelect: (c: GmailCategory | "") => void;
+}) {
+  const total = categories.reduce((a, c) => a + c.count, 0);
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {categories.map((c) => {
+        const info = CATEGORY_INFO[c.category];
+        const active = selected === c.category;
+        return (
+          <button key={c.category} onClick={() => onSelect(active ? "" : c.category)} aria-pressed={active}
+            className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${active ? "border-accent bg-accent/10" : "border-line hover:border-accent"}`}>
+            <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: info.color }}>
+              <span className="size-2 rounded-full" style={{ background: info.color }} aria-hidden />{info.label}
+            </div>
+            <div className="mt-1 text-lg font-semibold tabular-nums">{fmtNum(c.count)}</div>
+            <div className="text-xs text-subtle">{pct(c.count ? c.unread / c.count : 0)} unread</div>
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+              <div className="h-full" style={{ width: pct(total ? c.count / total : 0), background: info.color }} />
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const KEEP_KEY = "mailclean-keep-flagged";
+
+/** "Keep starred & important" — on by default, remembered. */
+function useKeepFlagged(): [boolean, (v: boolean) => void] {
+  const [keep, setKeep] = useState(true);
+  useEffect(() => {
+    try { setKeep(localStorage.getItem(KEEP_KEY) !== "off"); } catch { /* default */ }
+  }, []);
+  const update = (v: boolean) => {
+    setKeep(v);
+    try { localStorage.setItem(KEEP_KEY, v ? "on" : "off"); } catch { /* not saved */ }
+  };
+  return [keep, update];
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {

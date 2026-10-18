@@ -7,18 +7,25 @@ import { isDemo } from "./demo";
 
 export type CleanAction = "trash" | "archive";
 
-/**
- * Trash or archive the stored messages from the given senders within a scope
- * (optionally one account and a date range — the same view the user is looking at).
- */
-export async function cleanSenders(senders: string[], action: CleanAction, scope: Scope = {}) {
-  if (!senders.length) return { count: 0, errors: [] as string[] };
-  const marks = senders.map(() => "?").join(",");
+/** SQL selecting the messages a clean-up touches: these senders, in scope, optionally sparing starred/important mail. */
+export function cleanQuery(senders: string[], action: CleanAction, scope: Scope, keepFlagged: boolean, what = "m.account_id, m.msg_id") {
   const { conds, args } = scopeSql(scope);
-  const rows = db().prepare(
-    `SELECT m.account_id, m.msg_id FROM messages m WHERE m.from_email IN (${marks})
-     ${action === "archive" ? "AND m.in_inbox = 1" : ""} ${conds.map((c) => `AND ${c}`).join(" ")}`,
-  ).all(...senders, ...args) as { account_id: string; msg_id: string }[];
+  if (action === "archive") conds.push("m.in_inbox = 1");
+  if (keepFlagged) conds.push("m.starred = 0 AND m.important = 0");
+  return {
+    sql: `SELECT ${what} FROM messages m WHERE m.from_email IN (${senders.map(() => "?").join(",")}) ${conds.map((c) => `AND ${c}`).join(" ")}`,
+    args: [...senders, ...args],
+  };
+}
+
+/**
+ * Trash or archive the stored messages from the given senders within a scope (optionally one account, a date
+ * range and a Gmail tab — the same view the user is looking at). `keepFlagged` leaves starred and important mail.
+ */
+export async function cleanSenders(senders: string[], action: CleanAction, scope: Scope = {}, keepFlagged = false) {
+  if (!senders.length) return { count: 0, errors: [] as string[] };
+  const q = cleanQuery(senders, action, scope, keepFlagged);
+  const rows = db().prepare(q.sql).all(...q.args) as { account_id: string; msg_id: string }[];
 
   const byAccount = new Map<string, string[]>();
   for (const r of rows) byAccount.set(r.account_id, [...(byAccount.get(r.account_id) ?? []), r.msg_id]);

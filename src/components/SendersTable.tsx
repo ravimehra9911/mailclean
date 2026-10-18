@@ -5,6 +5,7 @@ import { mailboxLink, providerInfo } from "@/lib/catalog";
 import { api, fmtBytes, fmtDate, fmtNum, pct, type AccountShare, type Sender } from "./api";
 import { rangeParams, type DateRange } from "./DateFilter";
 import { BulkUnsubscribe } from "./BulkUnsubscribe";
+import { CATEGORY_INFO, CategoryTag, type GmailCategory } from "./categories";
 
 type Filter = "all" | "newsletters" | "mostly-unread";
 type Sort = "name" | "account" | "count" | "bytes" | "unread" | "last";
@@ -13,6 +14,11 @@ type Dir = "asc" | "desc";
 export function SendersTable(props: {
   accountId: string;
   range: DateRange;
+  /** Only emails in this Gmail tab. */
+  category?: GmailCategory | "";
+  /** Leave starred and important emails when trashing or archiving. */
+  keepFlagged: boolean;
+  setKeepFlagged?: (v: boolean) => void;
   /** Short name per account email (e.g. "Gmail", or "Gmail · work" when two accounts share a provider). */
   accountLabels?: Record<string, string>;
   initialFilter?: Filter;
@@ -22,7 +28,7 @@ export function SendersTable(props: {
   onChanged: () => void;
   toast: (msg: string, kind?: "ok" | "err") => void;
 }) {
-  const { accountId, range, compact, pageSize = 25, refreshKey, onChanged, toast, accountLabels } = props;
+  const { accountId, range, category = "", keepFlagged, setKeepFlagged, compact, pageSize = 25, refreshKey, onChanged, toast, accountLabels } = props;
   const [fullAccounts, setFullAccounts] = useFullAccountLabels();
   const [filter, setFilter] = useState<Filter>(props.initialFilter ?? "all");
   const [sort, setSort] = useState<{ by: Sort; dir: Dir }>({ by: "count", dir: "desc" });
@@ -37,12 +43,13 @@ export function SendersTable(props: {
     const p = new URLSearchParams({ sort: sort.by, dir: sort.dir, filter, limit: String(pageSize), offset: String(page * pageSize) });
     if (accountId) p.set("account", accountId);
     if (q) p.set("q", q);
+    if (category) p.set("category", category);
     rangeParams(p, range);
     setData(await api(`/api/senders?${p}`));
-  }, [accountId, range, sort, filter, q, page, pageSize]);
+  }, [accountId, range, category, sort, filter, q, page, pageSize]);
 
   useEffect(() => { load().catch((e) => toast(e.message, "err")); }, [load, refreshKey, toast]);
-  useEffect(() => { setPage(0); setSelected(new Set()); }, [accountId, range, filter, sort, q]);
+  useEffect(() => { setPage(0); setSelected(new Set()); }, [accountId, range, category, filter, sort, q]);
 
   // Click a column: sort by it (text columns start A→Z, numbers largest first); click again to flip.
   const sortBy = (by: Sort) =>
@@ -65,12 +72,14 @@ export function SendersTable(props: {
     const rows = data.rows.filter((r) => emails.includes(r.email));
     const n = rows.reduce((a, r) => a + (action === "archive" ? r.inbox : r.count), 0);
     const verb = action === "trash" ? "Move to Trash" : "Archive";
-    if (!confirm(`${verb} ${fmtNum(n)} emails from ${emails.length} sender${emails.length > 1 ? "s" : ""}?` +
+    const where = category ? ` in ${CATEGORY_INFO[category].label}` : "";
+    if (!confirm(`${verb} up to ${fmtNum(n)} emails${where} from ${emails.length} sender${emails.length > 1 ? "s" : ""}?` +
+      (keepFlagged ? "\n\nStarred and important emails are kept." : "") +
       (action === "trash" ? "\n\nTrashed mail can be restored for 30 days." : ""))) return;
     setBusy(action);
     try {
       const r = await api<{ count: number; errors: string[] }>("/api/clean", {
-        method: "POST", json: { senders: emails, action, accountId: accountId || undefined, from: range.from, to: range.to },
+        method: "POST", json: { senders: emails, action, accountId: accountId || undefined, from: range.from, to: range.to, category: category || undefined, keepFlagged },
       });
       toast(`${action === "trash" ? "Trashed" : "Archived"} ${fmtNum(r.count)} emails` + (r.errors.length ? ` — ${r.errors.join("; ")}` : ""),
         r.errors.length ? "err" : "ok");
@@ -116,6 +125,13 @@ export function SendersTable(props: {
               {f === "all" ? "All senders" : f === "newsletters" ? "Newsletters" : "Mostly unread"}
             </button>
           ))}
+          {setKeepFlagged && (
+            <label title="When you trash or archive, leave emails you starred or Gmail marked important"
+              className="flex cursor-pointer items-center gap-2 text-sm text-subtle sm:ml-auto">
+              <input type="checkbox" checked={keepFlagged} onChange={(e) => setKeepFlagged(e.target.checked)} className="accent-accent" />
+              Keep starred &amp; important
+            </label>
+          )}
         </div>
       )}
 
@@ -172,7 +188,10 @@ export function SendersTable(props: {
                     <div className="flex items-center gap-3">
                       <Avatar name={r.name || r.email} />
                       <div className="min-w-0">
-                        <div className="truncate font-medium">{r.name || r.email}</div>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-medium">{r.name || r.email}</span>
+                          {r.category && !category && <CategoryTag category={r.category} share={r.category_share} />}
+                        </div>
                         <div className="flex min-w-0 items-center text-xs text-subtle">
                           <span className="truncate">{r.email}</span>
                           <CopyButton text={r.email} toast={toast} />

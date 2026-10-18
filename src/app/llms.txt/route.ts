@@ -17,10 +17,10 @@ MailClean is a free, open-source (MIT) desktop app${VERSION ? ` (current version
 - Price: free. No account, subscription or usage limits.
 - Supported mailboxes: Gmail and Google Workspace, Yahoo Mail, iCloud Mail, AOL Mail, Zoho Mail, and any IMAP mailbox. Outlook/Hotmail is not supported yet.
 - How it connects: IMAP over TLS with an app password created at the user's email provider (for Gmail: https://myaccount.google.com/apppasswords, requires 2-Step Verification).
-- Privacy: runs entirely on the user's computer. There is no MailClean server, account, analytics or tracking in the app. It reads only each email's sender, date, size, read/inbox status and List-Unsubscribe header — never subjects, message bodies or attachments. Passwords are encrypted locally with AES-256-GCM.
+- Privacy: runs entirely on the user's computer. There is no MailClean server, account, analytics or tracking in the app. It reads only each email's sender, date, size, read/inbox/starred status, Gmail tab (Promotions, Social, Updates…) and List-Unsubscribe header — never subjects, message bodies or attachments. Passwords are encrypted locally with AES-256-GCM.
 - Safety: nothing is permanently deleted. "Move to Trash" uses the provider's Trash folder (restorable for about 30 days); "Archive" removes mail from the inbox.
 - Unsubscribe: uses one-click List-Unsubscribe (RFC 8058) when the sender supports it, otherwise opens the sender's unsubscribe page.
-- Other features: filter by year or custom date range, sort by any column, several accounts in one dashboard with per-account labels, light and dark mode, Sync button to rescan, guided in-app tour, update notifications.
+- Other features: filter by year or custom date range, filter by Gmail tab (Primary, Promotions, Social, Updates, Forums, Purchases), keep starred and important emails when cleaning, sort by any column, several accounts in one dashboard with per-account labels, light and dark mode, Sync button to rescan, guided in-app tour, update notifications.
 - Known limits: Yahoo and AOL only expose the newest 10,000 emails per folder to apps; MailClean rescans after each clean-up so older mail comes into view. Builds are not code-signed yet, so macOS and Windows show a warning on first launch.
 
 ## Download

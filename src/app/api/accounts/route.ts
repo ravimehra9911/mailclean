@@ -1,13 +1,13 @@
 import { ensureDemo, isDemo } from "@/lib/demo";
 import { NextResponse } from "next/server";
 import { DATA_DIR, listAccounts } from "@/lib/db";
-import { isConfigured, rescanForHeaderFix } from "@/lib/accounts";
+import { isConfigured, rescanAfterUpdate } from "@/lib/accounts";
 
 export const dynamic = "force-dynamic";
 
 export function GET() {
   ensureDemo();
-  rescanForHeaderFix();
+  rescanAfterUpdate();
   // Never send tokens to the browser.
   const accounts = listAccounts().map(({ access_token, refresh_token, expires_at, imap_host, imap_port, imap_user, ...a }) => a);
   return NextResponse.json({
