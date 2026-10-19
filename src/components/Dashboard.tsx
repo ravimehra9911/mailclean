@@ -7,7 +7,7 @@ import { ALL_TIME, DateFilter, rangeLabel, rangeParams, type DateRange } from ".
 import { ThemeToggle } from "./ThemeToggle";
 import { startTour, tourSeen, type TourKind } from "./Tour";
 import { Sidebar, type Tab } from "./Sidebar";
-import { AboutPage, HelpPage, PrivacyPage } from "./Pages";
+import { AboutPage, HelpPage, PrivacyPage, SecurityPage } from "./Pages";
 import { IconRefresh } from "./Icons";
 import { UpdateBanner, useUpdates } from "./Updates";
 import { api, fmtNum, pct, type Account, type Overview } from "./api";
@@ -160,7 +160,9 @@ export default function Dashboard() {
         {tab === "help" ? (
           <HelpPage onTour={runTour} />
         ) : tab === "privacy" ? (
-          <PrivacyPage dataDir={about.dataDir} onLockChange={checkLock} toast={toast} />
+          <PrivacyPage dataDir={about.dataDir} />
+        ) : tab === "security" ? (
+          <SecurityPage onLockChange={checkLock} toast={toast} onOpenApps={() => openTab("apps")} />
         ) : tab === "about" ? (
           <AboutPage version={about.version} updates={updates} />
         ) : accounts.length === 0 ? (

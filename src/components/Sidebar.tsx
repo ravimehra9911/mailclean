@@ -5,7 +5,7 @@ import {
 } from "./Icons";
 import { ThemeToggle } from "./ThemeToggle";
 
-export type Tab = "overview" | "senders" | "newsletters" | "rules" | "apps" | "accounts" | "help" | "privacy" | "about";
+export type Tab = "overview" | "senders" | "newsletters" | "rules" | "apps" | "accounts" | "help" | "privacy" | "security" | "about";
 
 type Item = { tab: Tab; label: string; Icon: (p: { className?: string }) => React.ReactNode; badge?: number; tour?: string };
 
@@ -26,6 +26,7 @@ export function Sidebar({ tab, setTab, accountCount, version, demo, onLock }: {
   const support: Item[] = [
     { tab: "help", label: "Help", Icon: IconHelp, tour: "help" },
     { tab: "privacy", label: "Privacy", Icon: IconPrivacy },
+    { tab: "security", label: "Security", Icon: IconLock },
     { tab: "about", label: "About", Icon: IconAbout },
   ];
 

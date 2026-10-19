@@ -83,7 +83,7 @@ const FEATURES = [
 ];
 
 // Shown as a pill in the hero; update with each feature release.
-const WHATS_NEW = { version: "1.7", text: "Lock MailClean with a 6-digit PIN", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.7.0" };
+const WHATS_NEW = { version: "1.7", text: "Lock MailClean with a 6-digit PIN", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.7.1" };
 
 
 const SHOTS = [
@@ -122,7 +122,7 @@ const FAQ = [
   },
   {
     q: "Can I lock MailClean with a PIN?",
-    a: "Yes. In Privacy → App lock, set a 6-digit PIN and MailClean asks for it every time it opens; after 5 wrong tries you have to wait before trying again. If you forget it, you can reset MailClean from the lock screen — that removes your connected accounts and scanned data from the app (your mailboxes aren't changed) so you can start fresh.",
+    a: "Yes. In Security → App lock, set a 6-digit PIN and MailClean asks for it every time it opens; after 5 wrong tries you have to wait before trying again. If you forget it, you can reset MailClean from the lock screen — that removes your connected accounts and scanned data from the app (your mailboxes aren't changed) so you can start fresh.",
   },
   {
     q: "How does bulk unsubscribe work?",

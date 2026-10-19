@@ -98,9 +98,7 @@ export function HelpPage({ onTour }: { onTour: (k: TourKind) => void }) {
 
 // ---------------------------------------------------------------- Privacy
 
-export function PrivacyPage({ dataDir, onLockChange, toast }: {
-  dataDir: string; onLockChange: () => void; toast: (m: string, k?: "ok" | "err") => void;
-}) {
+export function PrivacyPage({ dataDir }: { dataDir: string }) {
   const sections = [
     {
       title: "What MailClean reads",
@@ -123,7 +121,6 @@ export function PrivacyPage({ dataDir, onLockChange, toast }: {
   return (
     <div className="max-w-3xl space-y-3 text-sm leading-relaxed">
       <PageTitle title="Privacy" sub="Your email never leaves your computer." />
-      <AppLockSettings onChange={onLockChange} toast={toast} />
       {sections.map((s) => (
         <section key={s.title} className={card}>
           <h2 className="mb-1.5 font-semibold">{s.title}</h2>
@@ -134,6 +131,38 @@ export function PrivacyPage({ dataDir, onLockChange, toast }: {
       <p className="pt-2 text-xs text-subtle">
         MailClean is open source — anyone can check exactly what it does on <a href={REPO} {...ext} className="underline hover:text-ink">GitHub</a>.
       </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Security
+
+export function SecurityPage({ onLockChange, toast, onOpenApps }: {
+  onLockChange: () => void; toast: (m: string, k?: "ok" | "err") => void; onOpenApps: () => void;
+}) {
+  return (
+    <div className="max-w-3xl space-y-3 text-sm leading-relaxed">
+      <PageTitle title="Security" sub="Keep MailClean and your email accounts safe." />
+      <AppLockSettings onChange={onLockChange} toast={toast} />
+      <section className={card}>
+        <h2 className="mb-1.5 font-semibold">Your passwords</h2>
+        <p className="text-subtle">
+          App passwords are encrypted with AES-256-GCM and stored only on this computer. MailClean connects to your provider over
+          TLS and never sees your normal account password. To cut off access completely, delete the app password at your provider.
+        </p>
+      </section>
+      <section className={card}>
+        <h2 className="mb-1.5 font-semibold">Apps with access to your accounts</h2>
+        <p className="text-subtle">Review which other apps and services can sign in to or read your Google, Yahoo, Apple or Microsoft account.</p>
+        <button onClick={onOpenApps} className="mt-3 h-9 rounded-lg border border-line px-3 text-sm font-medium hover:bg-muted">Open Apps &amp; access</button>
+      </section>
+      <section className={card}>
+        <h2 className="mb-1.5 font-semibold">Only this app can talk to MailClean</h2>
+        <p className="text-subtle">
+          MailClean runs a small server on your computer that only accepts requests from its own window, using a secret that changes
+          every time it starts — websites you visit can&apos;t read your data through it.
+        </p>
+      </section>
     </div>
   );
 }
