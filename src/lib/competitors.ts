@@ -20,7 +20,7 @@ export const ROWS: { id: RowId; label: string; key?: boolean }[] = [
   { id: "price", label: "Price" },
   { id: "free", label: "Free to use", key: true },
   { id: "onDevice", label: "Email stays on your device", key: true },
-  { id: "noDataSale", label: "Your email isn't used for market research", key: true },
+  { id: "noDataSale", label: "Doesn't sell or research your email data", key: true },
   { id: "openSource", label: "Open source", key: true },
   { id: "reads", label: "What it reads" },
   { id: "bulk", label: "Bulk delete by sender", key: true },

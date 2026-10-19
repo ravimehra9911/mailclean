@@ -48,7 +48,7 @@ export default function ComparePage() {
         <div className="mt-4 text-xs leading-relaxed text-subtle">
           <p>
             Facts about other services are taken from their own websites in {CHECKED} and may have changed; quotes are
-            from those sites.
+            from those sites. “—” means we found no statement about it on their website.
             Product names are trademarks of their owners; MailClean is not affiliated with them.
           </p>
           <p className="mt-2">

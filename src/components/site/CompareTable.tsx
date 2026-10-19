@@ -5,11 +5,11 @@ import { COMPETITORS, MAILCLEAN, ROWS, type Fact } from "@/lib/competitors";
 function Cell({ v, compact }: { v: Fact; compact?: boolean }) {
   if (v === true) return <span className="font-semibold text-ok" aria-label="Yes">✓</span>;
   if (v === false) return <span className="text-subtle/60" aria-label="No">✕</span>;
-  // In compact mode a sentence becomes a mark, with the detail in a tooltip.
-  if (compact && /^No\b/.test(v)) return <span title={v} className="cursor-help text-subtle/60" aria-label={v}>✕</span>;
-  if (compact && /Not stated|unclear/i.test(v)) return <span title={v} className="cursor-help text-subtle" aria-label={v}>?</span>;
-  if (compact) return <span title={v} className="cursor-help text-[#b7791f]" aria-label={v}>◐</span>;
-  return <span className={/^No\b|Not stated|unclear/i.test(v) ? "text-subtle" : ""}>{v}</span>;
+  // In compact mode a sentence becomes a mark; the full comparison shows the wording and sources.
+  if (compact && /^No\b/.test(v)) return <span className="text-subtle/60" aria-label="No">✕</span>;
+  if (/Not stated|unclear/i.test(v)) return <span className="text-subtle" aria-label="Not stated on their website">—</span>;
+  if (compact) return <span className="text-[#b7791f]" aria-label="Partly">◐</span>;
+  return <span className={/^No\b/.test(v) ? "text-subtle" : ""}>{v}</span>;
 }
 
 export function CompareTable({ compact = false }: { compact?: boolean }) {
@@ -44,7 +44,9 @@ export function CompareTable({ compact = false }: { compact?: boolean }) {
       </table>
       {compact && (
         <p className="border-t border-line px-4 py-2.5 text-xs text-subtle">
-          <span className="text-ok">✓</span> yes · <span className="text-[#b7791f]">◐</span> partly (hover for details) · ✕ no · ? not stated
+          <span className="text-ok">✓</span> yes · <span className="text-[#b7791f]">◐</span> partly · ✕ no · — not stated on their website.
+          {" "}Based on each company&apos;s own website; details and sources are in the{" "}
+          <a href="/compare" className="text-accent underline-offset-2 hover:underline">full comparison</a>.
         </p>
       )}
     </div>
