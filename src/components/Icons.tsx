@@ -50,3 +50,6 @@ export const IconGitHub = ({ className }: P) => (
 export const IconRefresh = ({ className }: P) => (
   <svg {...base(className ?? "size-4")}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>
 );
+export const IconRules = ({ className }: P) => (
+  <svg {...base(className)}><path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5 6.8 15M17.2 9l2.6-1.5" /><circle cx="12" cy="12" r="3.5" /></svg>
+);

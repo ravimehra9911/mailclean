@@ -13,7 +13,12 @@ export interface Overview {
   /** Years that have mail (for the date filter), newest first. */
   years: number[];
   /** Emails per Gmail tab in this scope (ignoring the category filter); empty when no Gmail data. */
-  categories: { category: GmailCategory; count: number; unread: number }[];
+  categories: { category: GmailCategory; count: number; unread: number; bytes: number }[];
+  /** Ready-made clean-ups for the Overview: emails older than a year, and senders you (almost) never open. */
+  suggestions: {
+    old: { count: number; bytes: number; before: number };
+    neverOpened: { senders: number; count: number; bytes: number };
+  };
 }
 
 export interface AccountShare {
@@ -104,8 +109,15 @@ export function overview(scope: Scope): Overview {
     .filter((y) => y >= 1995); // emails with missing dates show up as 1970
 
   const cat = scopeSql({ ...scope, category: undefined });
-  const categories = d.prepare(`SELECT category, COUNT(*) count, SUM(unread) unread FROM messages m
+  const categories = d.prepare(`SELECT category, COUNT(*) count, SUM(unread) unread, SUM(size) bytes FROM messages m
     ${whereOf(cat.conds, ["category IS NOT NULL"])} GROUP BY category ORDER BY count DESC`).all(...cat.args) as unknown as Overview["categories"];
+
+  const before = Date.now() - 365 * 86_400_000;
+  const old = d.prepare(`SELECT COUNT(*) count, COALESCE(SUM(size),0) bytes FROM messages m ${whereOf(conds, ["m.date < ?"])}`)
+    .get(...args, before) as { count: number; bytes: number };
+  const neverOpened = d.prepare(`SELECT COUNT(*) senders, COALESCE(SUM(c),0) count, COALESCE(SUM(b),0) bytes FROM
+    (SELECT COUNT(*) c, SUM(unread) u, SUM(size) b FROM messages m ${w} GROUP BY from_email HAVING c >= 10 AND u * 1.0 / c >= 0.9)`)
+    .get(...args) as { senders: number; count: number; bytes: number };
 
   return {
     emails: totals.emails,
@@ -119,6 +131,7 @@ export function overview(scope: Scope): Overview {
     byAccount,
     years,
     categories,
+    suggestions: { old: { ...old, before }, neverOpened },
   };
 }
 

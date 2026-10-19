@@ -7,24 +7,45 @@ import { isDemo } from "./demo";
 
 export type CleanAction = "trash" | "archive";
 
-/** SQL selecting the messages a clean-up touches: these senders, in scope, optionally sparing starred/important mail. */
-export function cleanQuery(senders: string[], action: CleanAction, scope: Scope, keepFlagged: boolean, what = "m.account_id, m.msg_id") {
+/** What a clean-up leaves alone. */
+export interface CleanOptions {
+  /** Starred and important emails. */
+  keepFlagged?: boolean;
+  /** The newest N emails from each sender (within the scope). */
+  keepNewest?: number;
+}
+
+/** Parses clean options from a request body, ignoring anything invalid. */
+export function cleanOptions(body: { keepFlagged?: unknown; keepNewest?: unknown }): CleanOptions {
+  const n = Number(body.keepNewest);
+  return { keepFlagged: body.keepFlagged === true, keepNewest: Number.isInteger(n) && n > 0 && n <= 1000 ? n : 0 };
+}
+
+/** SQL selecting the messages a clean-up touches: these senders, in scope, minus what the options keep. */
+export function cleanQuery(senders: string[], action: CleanAction, scope: Scope, opts: CleanOptions = {}, what = "m.account_id, m.msg_id") {
+  const marks = senders.map(() => "?").join(",");
   const { conds, args } = scopeSql(scope);
   if (action === "archive") conds.push("m.in_inbox = 1");
-  if (keepFlagged) conds.push("m.starred = 0 AND m.important = 0");
+  if (opts.keepFlagged) conds.push("m.starred = 0 AND m.important = 0");
+  if (opts.keepNewest) {
+    const k = scopeSql(scope, "k");
+    conds.push(`m.rowid NOT IN (SELECT rid FROM (SELECT k.rowid rid, ROW_NUMBER() OVER (PARTITION BY k.from_email ORDER BY k.date DESC) rn
+      FROM messages k WHERE k.from_email IN (${marks}) ${k.conds.map((c) => `AND ${c}`).join(" ")}) WHERE rn <= ?)`);
+    args.push(...senders, ...k.args, opts.keepNewest);
+  }
   return {
-    sql: `SELECT ${what} FROM messages m WHERE m.from_email IN (${senders.map(() => "?").join(",")}) ${conds.map((c) => `AND ${c}`).join(" ")}`,
+    sql: `SELECT ${what} FROM messages m WHERE m.from_email IN (${marks}) ${conds.map((c) => `AND ${c}`).join(" ")}`,
     args: [...senders, ...args],
   };
 }
 
 /**
  * Trash or archive the stored messages from the given senders within a scope (optionally one account, a date
- * range and a Gmail tab — the same view the user is looking at). `keepFlagged` leaves starred and important mail.
+ * range and a Gmail tab — the same view the user is looking at), minus what `opts` keeps.
  */
-export async function cleanSenders(senders: string[], action: CleanAction, scope: Scope = {}, keepFlagged = false) {
+export async function cleanSenders(senders: string[], action: CleanAction, scope: Scope = {}, opts: CleanOptions = {}) {
   if (!senders.length) return { count: 0, errors: [] as string[] };
-  const q = cleanQuery(senders, action, scope, keepFlagged);
+  const q = cleanQuery(senders, action, scope, opts);
   const rows = db().prepare(q.sql).all(...q.args) as { account_id: string; msg_id: string }[];
 
   const byAccount = new Map<string, string[]>();
@@ -46,7 +67,7 @@ export async function cleanSenders(senders: string[], action: CleanAction, scope
   return { count, errors };
 }
 
-function applyLocally(accountId: string, ids: string[], action: CleanAction) {
+export function applyLocally(accountId: string, ids: string[], action: CleanAction) {
   const d = db();
   const stmt = action === "trash"
     ? d.prepare("DELETE FROM messages WHERE account_id = ? AND msg_id = ?")

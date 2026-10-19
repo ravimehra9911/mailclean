@@ -72,16 +72,16 @@ const FEATURES = [
   { title: "See who fills your inbox", text: "Every sender ranked by number of emails, storage used and how much you never open." },
   { title: "Clean up in one click", text: "Select senders and move thousands of emails to Trash or Archive at once. Nothing is permanently deleted." },
   { title: "Bulk unsubscribe", text: "Pick dozens of newsletters and unsubscribe from all of them. You see exactly what will happen before you confirm." },
-  { title: "Gmail tabs", text: "Filter by Promotions, Updates, Social, Forums or Purchases, and see which tab each sender lands in.", isNew: true },
-  { title: "Keep what matters", text: "Starred and important emails are left alone when you clean up — on by default.", isNew: true },
-  { title: "Filter by date", text: "Look at a whole year, the last 30 days or any start and end date — and clean only that period." },
+  { title: "Rules that clean for you", text: "Always trash a sender, or archive Promotions older than 30 days — applied after every sync.", isNew: true },
+  { title: "Cleaning suggestions", text: "Senders you never open, mail older than a year, your Promotions tab — one click to review each.", isNew: true },
+  { title: "Gmail tabs & dates", text: "Filter by Promotions, Updates, Social… or any date range, and clean only that." },
+  { title: "Keep what matters", text: "Starred and important emails stay, and you can keep the newest few from each sender.", isNew: true },
   { title: "All your accounts together", text: "Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox in one dashboard, with short account labels." },
-  { title: "Jump to your webmail", text: "One click opens Gmail searched for that sender, or copies the address for Yahoo and others." },
   { title: "Private by design", text: "Runs on your computer. Only sender, date, size and flags are read — never subjects or message content." },
 ];
 
 // Shown as a pill in the hero; update with each feature release.
-const WHATS_NEW = { version: "1.4", text: "Filter by Gmail tabs · keep starred & important", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.4.0" };
+const WHATS_NEW = { version: "1.5", text: "Rules that clean for you · cleaning suggestions", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.5.0" };
 
 
 const SHOTS = [
@@ -109,6 +109,10 @@ const FAQ = [
   {
     q: "Will it delete my starred or important emails?",
     a: "No. “Keep starred & important” is on by default: when you trash or archive a sender, emails you starred or Gmail marked important stay where they are. You can turn it off on the Senders page.",
+  },
+  {
+    q: "Can MailClean clean up automatically?",
+    a: "Yes. Add a rule — for example “always trash emails from this sender” or “archive Gmail Promotions older than 30 days” — and MailClean applies it after every sync, and every 6 hours while the app is open. Starred and important emails are always kept.",
   },
   {
     q: "How does bulk unsubscribe work?",
@@ -387,6 +391,7 @@ export default async function SitePage() {
             <span className="grid size-6 place-items-center rounded-md bg-accent text-xs text-white">✦</span> MailClean
           </span>
           <span>MIT License</span>
+          <a href="/vs/clean-email" className="hover:text-ink">MailClean vs Clean Email</a>
           <AnalyticsSettings />
           <a href={GITHUB_USER} className="ml-auto flex items-center gap-2 hover:text-ink">
             <GitHubIcon className="size-4" /> Built by <b className="font-medium text-ink">@ravimehra9911</b>

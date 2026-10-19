@@ -7,6 +7,14 @@ import { rangeParams, type DateRange } from "./DateFilter";
 import { BulkUnsubscribe } from "./BulkUnsubscribe";
 import { CATEGORY_INFO, CategoryTag, type GmailCategory } from "./categories";
 
+/** What a clean-up leaves alone; sent to /api/clean. */
+export interface KeepOptions { keepFlagged: boolean; keepNewest: number }
+
+const keepNote = (k: KeepOptions) => {
+  const parts = [k.keepNewest && `the newest ${k.keepNewest} from each sender`, k.keepFlagged && "starred and important emails"].filter(Boolean);
+  return parts.length ? `\n\nKept: ${parts.join(" and ")}.` : "";
+};
+
 type Filter = "all" | "newsletters" | "mostly-unread";
 type Sort = "name" | "account" | "count" | "bytes" | "unread" | "last";
 type Dir = "asc" | "desc";
@@ -16,9 +24,9 @@ export function SendersTable(props: {
   range: DateRange;
   /** Only emails in this Gmail tab. */
   category?: GmailCategory | "";
-  /** Leave starred and important emails when trashing or archiving. */
-  keepFlagged: boolean;
-  setKeepFlagged?: (v: boolean) => void;
+  /** What trashing or archiving leaves alone. */
+  keep: KeepOptions;
+  setKeep?: (k: KeepOptions) => void;
   /** Short name per account email (e.g. "Gmail", or "Gmail · work" when two accounts share a provider). */
   accountLabels?: Record<string, string>;
   initialFilter?: Filter;
@@ -28,7 +36,7 @@ export function SendersTable(props: {
   onChanged: () => void;
   toast: (msg: string, kind?: "ok" | "err") => void;
 }) {
-  const { accountId, range, category = "", keepFlagged, setKeepFlagged, compact, pageSize = 25, refreshKey, onChanged, toast, accountLabels } = props;
+  const { accountId, range, category = "", keep, setKeep, compact, pageSize = 25, refreshKey, onChanged, toast, accountLabels } = props;
   const [fullAccounts, setFullAccounts] = useFullAccountLabels();
   const [filter, setFilter] = useState<Filter>(props.initialFilter ?? "all");
   const [sort, setSort] = useState<{ by: Sort; dir: Dir }>({ by: "count", dir: "desc" });
@@ -74,17 +82,33 @@ export function SendersTable(props: {
     const verb = action === "trash" ? "Move to Trash" : "Archive";
     const where = category ? ` in ${CATEGORY_INFO[category].label}` : "";
     if (!confirm(`${verb} up to ${fmtNum(n)} emails${where} from ${emails.length} sender${emails.length > 1 ? "s" : ""}?` +
-      (keepFlagged ? "\n\nStarred and important emails are kept." : "") +
+      keepNote(keep) +
       (action === "trash" ? "\n\nTrashed mail can be restored for 30 days." : ""))) return;
     setBusy(action);
     try {
       const r = await api<{ count: number; errors: string[] }>("/api/clean", {
-        method: "POST", json: { senders: emails, action, accountId: accountId || undefined, from: range.from, to: range.to, category: category || undefined, keepFlagged },
+        method: "POST", json: { senders: emails, action, accountId: accountId || undefined, from: range.from, to: range.to, category: category || undefined, ...keep },
       });
       toast(`${action === "trash" ? "Trashed" : "Archived"} ${fmtNum(r.count)} emails` + (r.errors.length ? ` — ${r.errors.join("; ")}` : ""),
         r.errors.length ? "err" : "ok");
       setSelected(new Set());
       onChanged();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Rules that trash these senders' mail after every sync — a "block" for senders without unsubscribe links. */
+  async function alwaysTrash(emails: string[]) {
+    if (!confirm(`Always move emails from ${emails.length} sender${emails.length > 1 ? "s" : ""} to Trash?\n\n` +
+      "MailClean adds a rule for each one. It runs after every sync, keeps starred and important emails, and can be turned off on the Rules page.")) return;
+    setBusy("rule");
+    try {
+      for (const sender of emails) await api("/api/rules", { method: "POST", json: { sender, action: "trash", older_than_days: 0 } });
+      toast(`Added ${emails.length} rule${emails.length > 1 ? "s" : ""} — see the Rules page. Existing emails are trashed at the next sync, or click Run rules now.`);
+      setSelected(new Set());
     } catch (e) {
       toast((e as Error).message, "err");
     } finally {
@@ -125,12 +149,23 @@ export function SendersTable(props: {
               {f === "all" ? "All senders" : f === "newsletters" ? "Newsletters" : "Mostly unread"}
             </button>
           ))}
-          {setKeepFlagged && (
-            <label title="When you trash or archive, leave emails you starred or Gmail marked important"
-              className="flex cursor-pointer items-center gap-2 text-sm text-subtle sm:ml-auto">
-              <input type="checkbox" checked={keepFlagged} onChange={(e) => setKeepFlagged(e.target.checked)} className="accent-accent" />
-              Keep starred &amp; important
-            </label>
+          {setKeep && (
+            <div className="flex flex-wrap items-center gap-3 text-sm text-subtle sm:ml-auto">
+              <label title="When you trash or archive, leave the most recent emails from each sender"
+                className="flex items-center gap-1.5">
+                Keep newest
+                <select aria-label="Keep newest emails" value={keep.keepNewest} onChange={(e) => setKeep({ ...keep, keepNewest: Number(e.target.value) })}
+                  className={`h-8 rounded-lg border bg-card px-1.5 text-sm text-ink ${keep.keepNewest ? "border-accent" : "border-line"}`}>
+                  <option value={0}>none</option>
+                  {[1, 5, 10, 25].map((n) => <option key={n} value={n}>{n} per sender</option>)}
+                </select>
+              </label>
+              <label title="When you trash or archive, leave emails you starred or Gmail marked important"
+                className="flex cursor-pointer items-center gap-2">
+                <input type="checkbox" checked={keep.keepFlagged} onChange={(e) => setKeep({ ...keep, keepFlagged: e.target.checked })} className="accent-accent" />
+                Keep starred &amp; important
+              </label>
+            </div>
           )}
         </div>
       )}
@@ -146,6 +181,9 @@ export function SendersTable(props: {
           <div className="ml-auto flex flex-wrap gap-2">
             <button disabled={!!busy} onClick={() => setUnsubFor([...selected])}
               className="rounded-lg bg-white/15 px-3 py-1.5 hover:bg-white/25 disabled:opacity-50">Unsubscribe</button>
+            <button disabled={!!busy} onClick={() => alwaysTrash([...selected])}
+              title="Make a rule: new emails from these senders go straight to Trash after every sync"
+              className="rounded-lg bg-white/15 px-3 py-1.5 hover:bg-white/25 disabled:opacity-50">Always trash</button>
             <button disabled={!!busy} onClick={() => clean([...selected], "archive")}
               className="rounded-lg bg-white/15 px-3 py-1.5 hover:bg-white/25 disabled:opacity-50">Archive</button>
             <button disabled={!!busy} onClick={() => clean([...selected], "trash")}

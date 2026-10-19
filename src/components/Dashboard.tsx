@@ -11,14 +11,18 @@ import { AboutPage, HelpPage, PrivacyPage } from "./Pages";
 import { IconRefresh } from "./Icons";
 import { UpdateBanner, useUpdates } from "./Updates";
 import { api, fmtBytes, fmtNum, pct, type Account, type Overview } from "./api";
-import { AccountChip, SendersTable } from "./SendersTable";
+import { AccountChip, SendersTable, type KeepOptions } from "./SendersTable";
 import { CATEGORY_INFO, CategoryFilter, type GmailCategory } from "./categories";
 import { VolumeChart } from "./VolumeChart";
+import { RulesPage } from "./Rules";
 
 type Toast = { msg: string; kind: "ok" | "err" } | null;
 
 export default function Dashboard() {
   const [tab, setTab] = useState<Tab>("overview");
+  // Filter the Senders tab opens with (a cleaning suggestion can pick "Mostly unread").
+  const [sendersFilter, setSendersFilter] = useState<"all" | "mostly-unread">("all");
+  const openTab = useCallback((t: Tab) => { setSendersFilter("all"); setTab(t); }, []);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [configured, setConfigured] = useState({ google: false, microsoft: false });
   const [about, setAbout] = useState({ version: "", dataDir: "", demo: false });
@@ -52,7 +56,7 @@ export default function Dashboard() {
   const [accountId, setAccountId] = useState("");
   const [range, setRange] = useState<DateRange>(ALL_TIME);
   const [category, setCategory] = useState<GmailCategory | "">("");
-  const [keepFlagged, setKeepFlagged] = useKeepFlagged();
+  const [keep, setKeep] = useKeepOptions();
   const [ov, setOv] = useState<Overview | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [toastState, setToast] = useState<Toast>(null);
@@ -112,7 +116,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen md:flex">
-      <Sidebar tab={tab} setTab={setTab} accountCount={accounts.length} version={about.version} demo={about.demo} />
+      <Sidebar tab={tab} setTab={openTab} accountCount={accounts.length} version={about.version} demo={about.demo} />
 
       <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 md:px-8">
         {about.demo && (
@@ -137,7 +141,7 @@ export default function Dashboard() {
           <>
             <header className="mb-6 flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-semibold capitalize">{tab}</h1>
-              {tab !== "accounts" && (
+              {tab !== "accounts" && tab !== "rules" && (
                 <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                   <DateFilter value={range} years={ov?.years ?? []} onChange={setRange} />
                   <CategoryFilter value={category} options={ov?.categories ?? []} onChange={setCategory} />
@@ -153,7 +157,7 @@ export default function Dashboard() {
               <div className="md:hidden"><ThemeToggle /></div>
             </header>
 
-            {syncing && tab !== "accounts" && <SyncBanner accounts={accounts} />}
+            {syncing && tab !== "accounts" && tab !== "rules" && <SyncBanner accounts={accounts} />}
             {tab === "overview" && accounts.filter((a) => a.notice && (!accountId || a.id === accountId)).map((a) => (
               <div key={a.id} className="mb-6 rounded-xl border border-[#b7791f]/40 bg-[#b7791f]/10 px-5 py-3 text-sm">
                 <b>{a.email}:</b> {a.notice}
@@ -162,7 +166,7 @@ export default function Dashboard() {
 
             {tab === "overview" && ov && (
               <div className="space-y-6">
-                <div data-tour="summary"><Summary ov={ov} period={rangeLabel(range)} onMostlyUnread={() => setTab("senders")} /></div>
+                <div data-tour="summary"><Summary ov={ov} period={rangeLabel(range)} onMostlyUnread={() => { setSendersFilter("mostly-unread"); setTab("senders"); }} /></div>
                 {!accountId && ov.byAccount.length > 1 && (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {ov.byAccount.map((s) => (
@@ -181,6 +185,12 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
+                <Suggestions ov={ov} category={category} onPick={(s) => {
+                  if (s.range) setRange(s.range);
+                  if (s.category) setCategory(s.category);
+                  setSendersFilter(s.filter ?? "all");
+                  setTab(s.tab);
+                }} />
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <Stat label="Emails" value={fmtNum(ov.emails)} />
                   <Stat label="Storage used" value={fmtBytes(ov.bytes)} />
@@ -196,17 +206,18 @@ export default function Dashboard() {
                 <Card title="Emails received" sub={`per week, ${rangeLabel(range) ?? "last 6 months"}`}>
                   <VolumeChart daily={ov.daily} />
                 </Card>
-                <Card title="Top senders" sub="who fills your inbox" action={<button onClick={() => setTab("senders")} className="text-sm text-accent">View all →</button>}>
-                  <div data-tour="senders-table"><SendersTable accountId={accountId} accountLabels={accountLabels} range={range} category={category} keepFlagged={keepFlagged} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} /></div>
+                <Card title="Top senders" sub="who fills your inbox" action={<button onClick={() => openTab("senders")} className="text-sm text-accent">View all →</button>}>
+                  <div data-tour="senders-table"><SendersTable accountId={accountId} accountLabels={accountLabels} range={range} category={category} keep={keep} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} /></div>
                 </Card>
               </div>
             )}
-            {tab === "senders" && <SendersTable accountId={accountId} accountLabels={accountLabels} range={range} category={category}
-              keepFlagged={keepFlagged} setKeepFlagged={setKeepFlagged} refreshKey={refreshKey} onChanged={changed} toast={toast} />}
+            {tab === "senders" && <SendersTable key={`s-${sendersFilter}`} initialFilter={sendersFilter} accountId={accountId} accountLabels={accountLabels} range={range} category={category}
+              keep={keep} setKeep={setKeep} refreshKey={refreshKey} onChanged={changed} toast={toast} />}
             {tab === "newsletters" && (
               <SendersTable key="nl" accountId={accountId} accountLabels={accountLabels} range={range} category={category}
-                keepFlagged={keepFlagged} setKeepFlagged={setKeepFlagged} initialFilter="newsletters" refreshKey={refreshKey} onChanged={changed} toast={toast} />
+                keep={keep} setKeep={setKeep} initialFilter="newsletters" refreshKey={refreshKey} onChanged={changed} toast={toast} />
             )}
+            {tab === "rules" && <RulesPage categories={(ov?.categories ?? []).map((c) => c.category)} demo={about.demo} onChanged={changed} toast={toast} />}
             {tab === "accounts" && <Accounts accounts={accounts} configured={configured} reload={changed} toast={toast} />}
           </>
         )}
@@ -230,6 +241,51 @@ function Summary({ ov, period, onMostlyUnread }: { ov: Overview; period: string 
       {ov.mostlyUnreadSenders > 0 && <>{" · "}<button onClick={onMostlyUnread} className="font-medium text-danger underline-offset-2 hover:underline">
         {ov.mostlyUnreadSenders} senders are ≥90% unread →</button></>}
     </div>
+  );
+}
+
+type Pick = { tab: Tab; filter?: "mostly-unread"; range?: DateRange; category?: GmailCategory };
+
+/** Ready-made clean-ups: each card opens the senders that match, already filtered. */
+function Suggestions({ ov, category, onPick }: { ov: Overview; category: GmailCategory | ""; onPick: (p: Pick) => void }) {
+  const { old, neverOpened } = ov.suggestions;
+  const cat = (c: GmailCategory) => ov.categories.find((x) => x.category === c);
+  const items: { key: string; title: string; text: string; size: number; pick: Pick }[] = [];
+  if (neverOpened.count) items.push({ key: "unread", title: "Senders you never open", size: neverOpened.bytes,
+    text: `${fmtNum(neverOpened.senders)} senders · ${fmtNum(neverOpened.count)} emails`, pick: { tab: "senders", filter: "mostly-unread" } });
+  if (old.count) items.push({ key: "old", title: "Older than a year", size: old.bytes,
+    text: `${fmtNum(old.count)} emails before ${new Date(old.before).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}`,
+    pick: { tab: "senders", range: { key: "custom", to: old.before } } });
+  for (const c of ["promotions", "social"] as const) {
+    const x = cat(c);
+    if (x?.count && category !== c) items.push({ key: c, title: `Gmail ${CATEGORY_INFO[c].label}`, size: x.bytes,
+      text: `${fmtNum(x.count)} emails · ${pct(x.unread / x.count)} unread`, pick: { tab: "senders", category: c } });
+  }
+  if (ov.newsletters) items.push({ key: "nl", title: "Newsletters", size: 0,
+    text: `${fmtNum(ov.newsletters)} senders to unsubscribe from`, pick: { tab: "newsletters" } });
+  if (!items.length) return null;
+  return (
+    <section data-tour="suggestions" className="rounded-xl border border-line bg-card p-5">
+      <div className="mb-3 flex items-baseline gap-2">
+        <h2 className="font-semibold">Cleaning suggestions</h2>
+        <span className="text-sm text-subtle">quick wins — click one to review the senders</span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {items.map((s) => (
+          <button key={s.key} onClick={() => onPick(s.pick)}
+            className="group flex items-center gap-3 rounded-lg border border-line px-4 py-3 text-left transition-colors hover:border-accent hover:bg-accent/5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="truncate font-medium">{s.title}</span>
+                {s.size > 0 && <span className="ml-auto shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums">{fmtBytes(s.size)}</span>}
+              </div>
+              <div className="mt-0.5 truncate text-xs text-subtle" title={s.text}>{s.text}</div>
+            </div>
+            <span aria-hidden className="text-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-accent">→</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -261,17 +317,23 @@ function GmailTabs({ categories, selected, onSelect }: {
   );
 }
 
-const KEEP_KEY = "mailclean-keep-flagged";
+const KEEP_FLAGGED_KEY = "mailclean-keep-flagged";
+const KEEP_NEWEST_KEY = "mailclean-keep-newest";
 
-/** "Keep starred & important" — on by default, remembered. */
-function useKeepFlagged(): [boolean, (v: boolean) => void] {
-  const [keep, setKeep] = useState(true);
+/** What clean-ups leave alone: starred & important (on by default) and the newest N per sender; remembered. */
+function useKeepOptions(): [KeepOptions, (k: KeepOptions) => void] {
+  const [keep, setKeep] = useState<KeepOptions>({ keepFlagged: true, keepNewest: 0 });
   useEffect(() => {
-    try { setKeep(localStorage.getItem(KEEP_KEY) !== "off"); } catch { /* default */ }
+    try {
+      setKeep({ keepFlagged: localStorage.getItem(KEEP_FLAGGED_KEY) !== "off", keepNewest: Number(localStorage.getItem(KEEP_NEWEST_KEY)) || 0 });
+    } catch { /* defaults */ }
   }, []);
-  const update = (v: boolean) => {
-    setKeep(v);
-    try { localStorage.setItem(KEEP_KEY, v ? "on" : "off"); } catch { /* not saved */ }
+  const update = (k: KeepOptions) => {
+    setKeep(k);
+    try {
+      localStorage.setItem(KEEP_FLAGGED_KEY, k.keepFlagged ? "on" : "off");
+      localStorage.setItem(KEEP_NEWEST_KEY, String(k.keepNewest));
+    } catch { /* not saved */ }
   };
   return [keep, update];
 }

@@ -145,6 +145,10 @@ async function runSync(a: AccountRow, refetch = false) {
       for (const msgId of gone) del.run(a.id, msgId);
     }
     updateAccount(a.id, { sync_status: "done", synced: seen.size, total: Math.max(seen.size, 0), last_sync_at: Date.now() });
+    // Clean-up rules act on the fresh data (imported lazily: rules.ts imports this module).
+    const { runRules } = await import("./rules");
+    const r = await runRules(a.id);
+    if (r.errors.length) console.error(`[rules ${a.email}]`, r.errors.join("; "));
   } catch (e) {
     console.error(`[sync ${a.email}]`, e);
     updateAccount(a.id, { sync_status: "error", sync_error: e instanceof Error ? e.message : String(e), synced: seen.size });

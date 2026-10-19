@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /** Selected date range in epoch ms (`to` exclusive); both undefined = all time. */
 export interface DateRange {
@@ -39,6 +39,12 @@ export function DateFilter({ value, years, onChange }: { value: DateRange; years
   const [start, setStart] = useState(value.key === "custom" && value.from ? toIso(value.from) : "");
   const [end, setEnd] = useState(value.key === "custom" && value.to ? toIso(value.to - DAY) : "");
   const custom = value.key === "custom";
+  // Follow ranges set from outside (e.g. a cleaning suggestion picks "older than a year").
+  useEffect(() => {
+    if (value.key !== "custom") return;
+    setStart(value.from ? toIso(value.from) : "");
+    setEnd(value.to ? toIso(value.to - DAY) : "");
+  }, [value]);
 
   function applyCustom(s: string, e: string) {
     setStart(s);

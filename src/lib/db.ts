@@ -49,6 +49,19 @@ CREATE TABLE IF NOT EXISTS kv (
   v TEXT
 );
 
+-- Clean-up rules applied after every sync (v1.5). A rule matches a sender or a Gmail tab.
+CREATE TABLE IF NOT EXISTS rules (
+  id              TEXT PRIMARY KEY,
+  sender          TEXT,                  -- match emails from this address, or NULL
+  category        TEXT,                  -- match emails in this Gmail tab, or NULL
+  older_than_days INTEGER NOT NULL DEFAULT 0,
+  action          TEXT NOT NULL,         -- 'trash' | 'archive'
+  enabled         INTEGER NOT NULL DEFAULT 1,
+  created_at      INTEGER NOT NULL,
+  last_run_at     INTEGER,
+  cleaned         INTEGER NOT NULL DEFAULT 0  -- emails this rule has moved so far
+);
+
 CREATE TABLE IF NOT EXISTS unsubscribed (
   from_email TEXT PRIMARY KEY,
   method     TEXT NOT NULL,              -- 'one-click' | 'link' | 'mailto'

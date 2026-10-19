@@ -108,15 +108,25 @@ export interface DemoState {
   trashed: string[];
   /** Senders this visitor unsubscribed from. */
   unsubscribed: string[];
+  /** Clean-up rules this visitor made (never run against the sample data). */
+  rules: DemoRule[];
+}
+
+export interface DemoRule {
+  id: string; sender: string | null; category: GmailCategory | null; older_than_days: number;
+  action: "trash" | "archive"; enabled: number; created_at: number;
 }
 
 export function readDemoState(raw: string | undefined): DemoState {
   try {
     const v = JSON.parse(Buffer.from(raw ?? "", "base64url").toString("utf8"));
     const list = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === "string").slice(0, 200) : []);
-    return { trashed: list(v.trashed), unsubscribed: list(v.unsubscribed) };
+    const rules = (Array.isArray(v.rules) ? v.rules : []).slice(0, 20).filter((r: DemoRule) =>
+      r && typeof r.id === "string" && (typeof r.sender === "string" || typeof r.category === "string")
+      && (r.action === "trash" || r.action === "archive") && Number.isInteger(r.older_than_days));
+    return { trashed: list(v.trashed), unsubscribed: list(v.unsubscribed), rules };
   } catch {
-    return { trashed: [], unsubscribed: [] };
+    return { trashed: [], unsubscribed: [], rules: [] };
   }
 }
 

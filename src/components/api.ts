@@ -25,7 +25,11 @@ export interface Overview {
   daily: { day: string; count: number }[];
   byAccount: AccountShare[];
   years: number[];
-  categories: { category: GmailCategory; count: number; unread: number }[];
+  categories: { category: GmailCategory; count: number; unread: number; bytes: number }[];
+  suggestions: {
+    old: { count: number; bytes: number; before: number };
+    neverOpened: { senders: number; count: number; bytes: number };
+  };
 }
 
 export interface AccountShare {
