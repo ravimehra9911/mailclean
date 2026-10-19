@@ -6,6 +6,7 @@ import { HeroVideo } from "@/components/site/HeroVideo";
 import { DownloadCountsProvider, DownloadTotal } from "@/components/site/DownloadCounts";
 import { PROVIDER_LOGOS } from "@/components/site/ProviderLogos";
 import { StructuredData } from "@/components/site/StructuredData";
+import { CompareTable } from "@/components/site/CompareTable";
 import { DESCRIPTION, DEVELOPER, GOOGLE_SITE_VERIFICATION, KEYWORDS, SITE_NAME, SITE_URL, TITLE } from "@/lib/site";
 import { CleanupDemo, CountUp, Downloads, Reveal, ScrollProgress, SpotlightGrid, Tilt } from "@/components/site/Effects";
 
@@ -157,6 +158,7 @@ export default async function SitePage() {
             <a href="#features" className="hover:text-ink">Features</a>
             <a href="#screenshots" className="hover:text-ink">Screenshots</a>
             <a href="#privacy" className="hover:text-ink">Privacy</a>
+            <a href="#compare" className="hover:text-ink">Compare</a>
             <a href="#download" className="hover:text-ink">Download</a>
             <a href={REPO} data-track="github" className="hover:text-ink">GitHub</a>
           </div>
@@ -331,6 +333,18 @@ export default async function SitePage() {
           </div>
         </section>
 
+        {/* Compare */}
+        <section id="compare" className="mx-auto max-w-6xl scroll-mt-20 px-4 pt-20">
+          <h2 className="text-center text-3xl font-semibold">How MailClean compares</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-subtle">
+            Most inbox cleaners scan your mailbox from their servers — and some free ones pay for it with your data.
+          </p>
+          <Reveal className="mt-10"><CompareTable compact /></Reveal>
+          <p className="mt-4 text-center text-sm">
+            <a href="/compare" className="font-medium text-accent underline-offset-2 hover:underline">See the full comparison with prices and sources →</a>
+          </p>
+        </section>
+
         {/* Download */}
         <section id="download" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20">
           <h2 className="text-center text-3xl font-semibold">Download MailClean</h2>
@@ -391,7 +405,8 @@ export default async function SitePage() {
             <span className="grid size-6 place-items-center rounded-md bg-accent text-xs text-white">✦</span> MailClean
           </span>
           <span>MIT License</span>
-          <a href="/vs/clean-email" className="hover:text-ink">MailClean vs Clean Email</a>
+          <a href="/compare" className="hover:text-ink">Compare</a>
+          <a href="/vs/clean-email" className="hover:text-ink">vs Clean Email</a>
           <AnalyticsSettings />
           <a href={GITHUB_USER} className="ml-auto flex items-center gap-2 hover:text-ink">
             <GitHubIcon className="size-4" /> Built by <b className="font-medium text-ink">@ravimehra9911</b>
