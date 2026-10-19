@@ -56,3 +56,6 @@ export const IconRules = ({ className }: P) => (
 export const IconApps = ({ className }: P) => (
   <svg {...base(className)}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><path d="M17.5 14v7M14 17.5h7" /></svg>
 );
+export const IconLock = ({ className }: P) => (
+  <svg {...base(className)}><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+);

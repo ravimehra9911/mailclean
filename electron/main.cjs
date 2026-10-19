@@ -80,7 +80,7 @@ function waitForServer(url, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve, reject) => {
     const attempt = () => {
-      const req = http.get(`${url}/api/accounts`, { headers: { "x-mailclean-token": TOKEN } }, (res) => {
+      const req = http.get(`${url}/api/lock`, { headers: { "x-mailclean-token": TOKEN } }, (res) => {
         res.resume();
         if (res.statusCode === 200) resolve();
         else retry();

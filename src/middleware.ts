@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { lockStatus, UNLOCK_COOKIE } from "@/lib/applock";
 
 // In the desktop app the server listens on localhost, where any website the user visits could send it
 // requests. The app passes a random per-launch token (MAILCLEAN_TOKEN) and adds it to every request from
@@ -27,17 +28,23 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = process.env.MAILCLEAN_TOKEN;
-  if (!token) return NextResponse.next();
-
-  // Block DNS-rebinding: only accept requests addressed to this machine.
-  const host = req.headers.get("host") ?? "";
-  if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return new NextResponse("Forbidden", { status: 403 });
-
   const { pathname } = req.nextUrl;
-  if (pathname.startsWith("/api/") && !OPEN.test(pathname)) {
-    const sent = req.headers.get("x-mailclean-token") ?? "";
-    if (!safeEqual(sent, token)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const token = process.env.MAILCLEAN_TOKEN;
+  if (token) {
+    // Block DNS-rebinding: only accept requests addressed to this machine.
+    const host = req.headers.get("host") ?? "";
+    if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return new NextResponse("Forbidden", { status: 403 });
+
+    if (pathname.startsWith("/api/") && !OPEN.test(pathname)) {
+      const sent = req.headers.get("x-mailclean-token") ?? "";
+      if (!safeEqual(sent, token)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  // App lock: with a PIN set, data is only served after unlocking (the lock route itself stays open).
+  if (pathname.startsWith("/api/") && pathname !== "/api/lock" && !OPEN.test(pathname)) {
+    const lock = lockStatus(req.cookies.get(UNLOCK_COOKIE)?.value);
+    if (lock.enabled && !lock.unlocked) return NextResponse.json({ error: "MailClean is locked", locked: true }, { status: 423 });
   }
   return NextResponse.next();
 }

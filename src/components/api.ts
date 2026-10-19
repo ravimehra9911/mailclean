@@ -68,6 +68,8 @@ export async function api<T>(url: string, init?: RequestInit & { json?: unknown 
     body: init?.json !== undefined ? JSON.stringify(init.json) : init?.body,
   });
   const data = await res.json();
+  // The app was locked (PIN set and not unlocked in this session): show the lock screen.
+  if (res.status === 423) window.dispatchEvent(new Event("mailclean-locked"));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data as T;
 }

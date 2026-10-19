@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  IconAbout, IconAccounts, IconApps, IconBack, IconHelp, IconNewsletter, IconOverview, IconPrivacy, IconRules, IconSenders,
+  IconAbout, IconAccounts, IconApps, IconBack, IconLock, IconHelp, IconNewsletter, IconOverview, IconPrivacy, IconRules, IconSenders,
 } from "./Icons";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -10,8 +10,10 @@ export type Tab = "overview" | "senders" | "newsletters" | "rules" | "apps" | "a
 type Item = { tab: Tab; label: string; Icon: (p: { className?: string }) => React.ReactNode; badge?: number; tour?: string };
 
 /** App navigation: a sidebar on desktop, a scrollable bar on small screens. */
-export function Sidebar({ tab, setTab, accountCount, version, demo }: {
+export function Sidebar({ tab, setTab, accountCount, version, demo, onLock }: {
   tab: Tab; setTab: (t: Tab) => void; accountCount: number; version: string; demo: boolean;
+  /** Shown when an app-lock PIN is set. */
+  onLock?: () => void;
 }) {
   const mailbox: Item[] = [
     { tab: "overview", label: "Overview", Icon: IconOverview },
@@ -70,6 +72,12 @@ export function Sidebar({ tab, setTab, accountCount, version, demo }: {
 
       <div className="hidden items-center justify-between gap-2 border-t border-line px-4 py-3 md:flex">
         <div data-tour="theme"><ThemeToggle /></div>
+        {onLock && (
+          <button onClick={onLock} title="Lock MailClean" aria-label="Lock MailClean"
+            className="grid size-8 place-items-center rounded-lg text-subtle hover:bg-muted hover:text-ink">
+            <IconLock className="size-[18px]" />
+          </button>
+        )}
         {version && <span className="text-[11px] text-subtle tabular-nums">v{version}</span>}
       </div>
     </aside>

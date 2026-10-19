@@ -83,7 +83,7 @@ const FEATURES = [
 ];
 
 // Shown as a pill in the hero; update with each feature release.
-const WHATS_NEW = { version: "1.6", text: "See who has your email and which apps can access it", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.6.0" };
+const WHATS_NEW = { version: "1.7", text: "Lock MailClean with a 6-digit PIN", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.7.0" };
 
 
 const SHOTS = [
@@ -119,6 +119,10 @@ const FAQ = [
   {
     q: "Can MailClean show which apps have access to my account?",
     a: "MailClean links straight to Google's, Yahoo's, Apple's and Microsoft's own pages that list the apps with access to your account, so you can review and remove them there. It also lists every company that has emailed you, flags security alerts and accounts you haven't heard from in a year — built from sender addresses it already has.",
+  },
+  {
+    q: "Can I lock MailClean with a PIN?",
+    a: "Yes. In Privacy → App lock, set a 6-digit PIN and MailClean asks for it every time it opens; after 5 wrong tries you have to wait before trying again. If you forget it, you can reset MailClean from the lock screen — that removes your connected accounts and scanned data from the app (your mailboxes aren't changed) so you can start fresh.",
   },
   {
     q: "How does bulk unsubscribe work?",
@@ -310,6 +314,7 @@ export default async function SitePage() {
                 "No MailClean server, account or tracking",
                 "Saves only sender, date, size and flags — never subjects or content",
                 "Starred and important emails are kept when you clean up",
+                "Optional 6-digit PIN locks the app on shared computers",
                 "Passwords encrypted on your device (AES-256-GCM)",
                 "Nothing permanently deleted — Trash keeps mail for ~30 days",
                 "Open source: anyone can check the code",

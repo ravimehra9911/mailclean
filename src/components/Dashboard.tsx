@@ -16,6 +16,7 @@ import { CategoryFilter, type GmailCategory } from "./categories";
 import { VolumeChart } from "./VolumeChart";
 import { RulesPage } from "./Rules";
 import { AppsAccess } from "./AppsAccess";
+import { getLock, LockScreen } from "./AppLock";
 import { CleanupNext, GmailTabsList, Headline } from "./OverviewCards";
 
 type Toast = { msg: string; kind: "ok" | "err" } | null;
@@ -80,14 +81,27 @@ export default function Dashboard() {
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  // App lock: null while checking; with a PIN set, nothing loads until it's entered.
+  const [lock, setLock] = useState<{ enabled: boolean; locked: boolean } | null>(null);
+  const checkLock = useCallback(async () => {
+    const s = await getLock().catch(() => ({ enabled: false, unlocked: true }));
+    setLock({ enabled: s.enabled, locked: s.enabled && !s.unlocked });
+    return s.enabled && !s.unlocked;
+  }, []);
+  useEffect(() => {
+    checkLock().then((locked) => { if (!locked) loadAccounts().catch(() => {}); });
+    const onLocked = () => setLock({ enabled: true, locked: true });
+    window.addEventListener("mailclean-locked", onLocked);
+    return () => window.removeEventListener("mailclean-locked", onLocked);
+  }, [checkLock, loadAccounts]);
+
   // Show the result of an OAuth redirect, then clean the URL.
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     if (p.get("connected")) toast(`Connected ${p.get("connected")} — scanning your mailbox…`);
     if (p.get("error")) toast(p.get("error")!, "err");
     if (p.size) window.history.replaceState(null, "", "/");
-    loadAccounts();
-  }, [loadAccounts, toast]);
+  }, [toast]);
 
   useEffect(() => {
     if (accounts?.length) {
@@ -101,10 +115,10 @@ export default function Dashboard() {
 
   // Refresh when the window regains focus, e.g. after finishing sign-in in the system browser.
   useEffect(() => {
-    const onFocus = () => { loadAccounts(); refresh(); };
+    const onFocus = () => { if (lock && !lock.locked) { loadAccounts().catch(() => {}); refresh(); } };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [loadAccounts, refresh]);
+  }, [loadAccounts, refresh, lock]);
 
   // While any account is syncing, poll progress and refresh numbers.
   const syncing = accounts?.some((a) => a.sync_status === "syncing");
@@ -114,13 +128,23 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, [syncing, loadAccounts, refresh]);
 
-  if (accounts === null) return <div className="grid min-h-screen place-items-center text-subtle">Loading…</div>;
+  if (lock?.locked) {
+    return <LockScreen onUnlocked={(wasReset) => {
+      setLock({ enabled: !wasReset, locked: false });
+      if (wasReset) { setTab("overview"); setAccountId(""); toast("MailClean was reset — connect an account to start again"); }
+      loadAccounts().catch(() => {});
+      refresh();
+    }} />;
+  }
+  if (lock === null || accounts === null) return <div className="grid min-h-screen place-items-center text-subtle">Loading…</div>;
 
   const changed = () => { refresh(); loadAccounts(); };
 
   return (
     <div className="min-h-screen md:flex">
-      <Sidebar tab={tab} setTab={openTab} accountCount={accounts.length} version={about.version} demo={about.demo} />
+      <Sidebar tab={tab} setTab={openTab} accountCount={accounts.length} version={about.version} demo={about.demo}
+        onLock={lock.enabled ? () => { fetch("/api/lock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "lock" }) })
+          .finally(() => setLock({ enabled: true, locked: true })); } : undefined} />
 
       <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 md:px-8">
         {about.demo && (
@@ -136,7 +160,7 @@ export default function Dashboard() {
         {tab === "help" ? (
           <HelpPage onTour={runTour} />
         ) : tab === "privacy" ? (
-          <PrivacyPage dataDir={about.dataDir} />
+          <PrivacyPage dataDir={about.dataDir} onLockChange={checkLock} toast={toast} />
         ) : tab === "about" ? (
           <AboutPage version={about.version} updates={updates} />
         ) : accounts.length === 0 ? (

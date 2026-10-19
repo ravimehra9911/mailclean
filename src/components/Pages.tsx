@@ -2,6 +2,7 @@
 
 // Support pages: Help (tours and quick answers), Privacy, and About (app, updates, developer).
 
+import { AppLockSettings } from "./AppLock";
 import { IconBug, IconCompass, IconExternal, IconGitHub, IconPlusCircle } from "./Icons";
 import type { TourKind } from "./Tour";
 import { UpdateSection, type UpdateInfo } from "./Updates";
@@ -97,7 +98,9 @@ export function HelpPage({ onTour }: { onTour: (k: TourKind) => void }) {
 
 // ---------------------------------------------------------------- Privacy
 
-export function PrivacyPage({ dataDir }: { dataDir: string }) {
+export function PrivacyPage({ dataDir, onLockChange, toast }: {
+  dataDir: string; onLockChange: () => void; toast: (m: string, k?: "ok" | "err") => void;
+}) {
   const sections = [
     {
       title: "What MailClean reads",
@@ -120,6 +123,7 @@ export function PrivacyPage({ dataDir }: { dataDir: string }) {
   return (
     <div className="max-w-3xl space-y-3 text-sm leading-relaxed">
       <PageTitle title="Privacy" sub="Your email never leaves your computer." />
+      <AppLockSettings onChange={onLockChange} toast={toast} />
       {sections.map((s) => (
         <section key={s.title} className={card}>
           <h2 className="mb-1.5 font-semibold">{s.title}</h2>
