@@ -15,6 +15,7 @@ import { SendersTable, type KeepOptions } from "./SendersTable";
 import { CategoryFilter, type GmailCategory } from "./categories";
 import { VolumeChart } from "./VolumeChart";
 import { RulesPage } from "./Rules";
+import { AppsAccess } from "./AppsAccess";
 import { CleanupNext, GmailTabsList, Headline } from "./OverviewCards";
 
 type Toast = { msg: string; kind: "ok" | "err" } | null;
@@ -23,7 +24,9 @@ export default function Dashboard() {
   const [tab, setTab] = useState<Tab>("overview");
   // Filter the Senders tab opens with (a cleaning suggestion can pick "Mostly unread").
   const [sendersFilter, setSendersFilter] = useState<"all" | "mostly-unread">("all");
-  const openTab = useCallback((t: Tab) => { setSendersFilter("all"); setTab(t); }, []);
+  // Search the Senders tab opens with (a company picked on Accounts and apps).
+  const [sendersQuery, setSendersQuery] = useState("");
+  const openTab = useCallback((t: Tab) => { setSendersFilter("all"); setSendersQuery(""); setTab(t); }, []);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [configured, setConfigured] = useState({ google: false, microsoft: false });
   const [about, setAbout] = useState({ version: "", dataDir: "", demo: false });
@@ -141,8 +144,8 @@ export default function Dashboard() {
         ) : (
           <>
             <header className="mb-6 flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold capitalize">{tab}</h1>
-              {tab !== "accounts" && tab !== "rules" && (
+              <h1 className="text-2xl font-semibold">{tab === "apps" ? "Accounts and apps" : tab.charAt(0).toUpperCase() + tab.slice(1)}</h1>
+              {tab !== "accounts" && tab !== "rules" && tab !== "apps" && (
                 <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                   <DateFilter value={range} years={ov?.years ?? []} onChange={setRange} />
                   <CategoryFilter value={category} options={ov?.categories ?? []} onChange={setCategory} />
@@ -158,7 +161,7 @@ export default function Dashboard() {
               <div className="md:hidden"><ThemeToggle /></div>
             </header>
 
-            {syncing && tab !== "accounts" && tab !== "rules" && <SyncBanner accounts={accounts} />}
+            {syncing && ["overview", "senders", "newsletters"].includes(tab) && <SyncBanner accounts={accounts} />}
             {tab === "overview" && ov && (
               <div className="space-y-6">
                 <Headline ov={ov} accounts={accounts} period={rangeLabel(range)} onAccount={setAccountId} />
@@ -182,13 +185,15 @@ export default function Dashboard() {
                 </Card>
               </div>
             )}
-            {tab === "senders" && <SendersTable key={`s-${sendersFilter}`} initialFilter={sendersFilter} accountId={accountId} accountLabels={accountLabels} range={range} category={category}
+            {tab === "senders" && <SendersTable key={`s-${sendersFilter}-${sendersQuery}`} initialFilter={sendersFilter} initialQuery={sendersQuery} accountId={accountId} accountLabels={accountLabels} range={range} category={category}
               keep={keep} setKeep={setKeep} refreshKey={refreshKey} onChanged={changed} toast={toast} />}
             {tab === "newsletters" && (
               <SendersTable key="nl" accountId={accountId} accountLabels={accountLabels} range={range} category={category}
                 keep={keep} setKeep={setKeep} initialFilter="newsletters" refreshKey={refreshKey} onChanged={changed} toast={toast} />
             )}
             {tab === "rules" && <RulesPage categories={(ov?.categories ?? []).map((c) => c.category)} demo={about.demo} onChanged={changed} toast={toast} />}
+            {tab === "apps" && <AppsAccess accounts={accounts} onChanged={changed} toast={toast}
+              onOpenSenders={(domain) => { setSendersFilter("all"); setSendersQuery(domain); setTab("senders"); }} />}
             {tab === "accounts" && <Accounts accounts={accounts} configured={configured} reload={changed} toast={toast} />}
           </>
         )}

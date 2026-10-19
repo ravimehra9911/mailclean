@@ -53,3 +53,6 @@ export const IconRefresh = ({ className }: P) => (
 export const IconRules = ({ className }: P) => (
   <svg {...base(className)}><path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5 6.8 15M17.2 9l2.6-1.5" /><circle cx="12" cy="12" r="3.5" /></svg>
 );
+export const IconApps = ({ className }: P) => (
+  <svg {...base(className)}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><path d="M17.5 14v7M14 17.5h7" /></svg>
+);

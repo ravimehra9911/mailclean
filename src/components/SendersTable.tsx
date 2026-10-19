@@ -30,6 +30,8 @@ export function SendersTable(props: {
   /** Short name per account email (e.g. "Gmail", or "Gmail · work" when two accounts share a provider). */
   accountLabels?: Record<string, string>;
   initialFilter?: Filter;
+  /** Search text to start with, e.g. a company domain from Accounts and apps. */
+  initialQuery?: string;
   pageSize?: number;
   compact?: boolean;
   refreshKey: number;
@@ -40,7 +42,7 @@ export function SendersTable(props: {
   const [fullAccounts, setFullAccounts] = useFullAccountLabels();
   const [filter, setFilter] = useState<Filter>(props.initialFilter ?? "all");
   const [sort, setSort] = useState<{ by: Sort; dir: Dir }>({ by: "count", dir: "desc" });
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(props.initialQuery ?? "");
   const [page, setPage] = useState(0);
   const [data, setData] = useState<{ rows: Sender[]; total: number }>({ rows: [], total: 0 });
   const [selected, setSelected] = useState<Set<string>>(new Set());

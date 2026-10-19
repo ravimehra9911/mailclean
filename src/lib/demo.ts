@@ -34,10 +34,12 @@ const SENDERS: [string, string, number, number, number, boolean, GmailCategory][
   ["RailBook", "tickets@railbook.example", 2, 200, 0.1, false, "purchases"],
   ["Fitness Club", "news@fitclub.example", 11, 75, 0.93, true, "promotions"],
   ["GreenGrocer", "basket@greengrocer.example", 15, 50, 0.9, true, "purchases"],
+  // Real sender address so the "Security alert" tag on Accounts and apps has an example.
+  ["Google", "no-reply@accounts.google.com", 1, 40, 0.4, false, "updates"],
 ];
 
 // Bump to reseed demo databases created by an older version.
-const DEMO_VERSION = "2";
+const DEMO_VERSION = "4";
 
 const ACCOUNTS = [
   { provider: "gmail", email: "you@example.com", share: 0.65 },
@@ -66,13 +68,15 @@ export function seedDemo() {
     let n = 0;
     for (const [name, email, perMonth, kb, unreadRate, newsletter, category] of SENDERS) {
       const personal = category === "primary";
+      // RailBook stopped emailing ~14 months ago, so the demo shows a "Quiet 1 yr+" company.
+      const shift = email.startsWith("tickets@railbook") ? 14 * 30.4 * 86_400_000 : 0;
       const count = Math.round(perMonth * months * acc.share * (0.5 + rand() * 0.9));
       for (let i = 0; i < count; i++) {
         rows.push({
           msg_id: `demo-${acc.provider}-${n++}`,
           from_email: email,
           from_name: name,
-          date: now - Math.floor(rand() ** 0.8 * months * 30.4 * 86_400_000),
+          date: now - shift - Math.floor(rand() ** 0.8 * (months - (shift ? 14 : 0)) * 30.4 * 86_400_000),
           size: Math.round(kb * 1024 * (0.5 + rand())),
           unread: rand() < unreadRate,
           in_inbox: rand() < 0.85,

@@ -153,3 +153,41 @@ export function mailboxLink(provider: string, account: string, sender: string): 
       return null;
   }
 }
+
+/**
+ * The provider's own page listing apps and services with access to the account (and app passwords), where the
+ * user can review and remove them. MailClean can't read these lists itself; it links to them.
+ */
+export function accessSettings(provider: string, account: string): { url: string; label: string; text: string } | null {
+  const q = encodeURIComponent;
+  switch (provider) {
+    case "gmail":
+    case "google":
+      return { url: `https://myaccount.google.com/connections?authuser=${q(account)}`, label: "Open Google settings",
+        text: "Apps using “Sign in with Google” or with access to your Google account" };
+    case "yahoo":
+      return { url: "https://login.yahoo.com/account/security", label: "Open Yahoo settings",
+        text: "App passwords and recent account activity for your Yahoo account" };
+    case "aol":
+      return { url: "https://login.aol.com/account/security", label: "Open AOL settings",
+        text: "App passwords and recent account activity for your AOL account" };
+    case "icloud":
+      return { url: "https://account.apple.com/account/manage", label: "Open Apple Account",
+        text: "Apps using “Sign in with Apple” and your app-specific passwords" };
+    case "microsoft":
+      return { url: "https://account.live.com/consent/Manage", label: "Open Microsoft settings",
+        text: "Apps and services you've given access to your Microsoft account" };
+    case "zoho":
+      return { url: "https://accounts.zoho.com/home", label: "Open Zoho Accounts",
+        text: "Connected apps, sessions and app passwords for your Zoho account" };
+    default:
+      return null;
+  }
+}
+
+/** Other places where apps commonly get access through "Sign in with…". */
+export const OTHER_ACCESS_PAGES = [
+  { label: "Sign in with Apple", url: "https://account.apple.com/account/manage" },
+  { label: "Facebook apps", url: "https://www.facebook.com/settings/?tab=applications" },
+  { label: "Microsoft", url: "https://account.live.com/consent/Manage" },
+] as const;

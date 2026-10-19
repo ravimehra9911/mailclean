@@ -54,6 +54,7 @@ export function StructuredData({ faq, version }: { faq: { q: string; a: string }
           "Keeps starred and important emails when cleaning, and optionally the newest emails per sender",
           "Automatic clean-up rules applied after every sync",
           "Cleaning suggestions: never-opened senders, old mail, Promotions",
+          "Who has your email: companies that have your address, with links to review app access",
           "Gmail, Yahoo Mail, iCloud Mail, AOL, Zoho and any IMAP mailbox",
           "Runs locally: email is never uploaded to a server",
         ],

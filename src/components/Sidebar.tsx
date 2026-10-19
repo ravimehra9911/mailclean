@@ -1,11 +1,11 @@
 "use client";
 
 import {
-  IconAbout, IconAccounts, IconBack, IconHelp, IconNewsletter, IconOverview, IconPrivacy, IconRules, IconSenders,
+  IconAbout, IconAccounts, IconApps, IconBack, IconHelp, IconNewsletter, IconOverview, IconPrivacy, IconRules, IconSenders,
 } from "./Icons";
 import { ThemeToggle } from "./ThemeToggle";
 
-export type Tab = "overview" | "senders" | "newsletters" | "rules" | "accounts" | "help" | "privacy" | "about";
+export type Tab = "overview" | "senders" | "newsletters" | "rules" | "apps" | "accounts" | "help" | "privacy" | "about";
 
 type Item = { tab: Tab; label: string; Icon: (p: { className?: string }) => React.ReactNode; badge?: number; tour?: string };
 
@@ -18,6 +18,7 @@ export function Sidebar({ tab, setTab, accountCount, version, demo }: {
     { tab: "senders", label: "Senders", Icon: IconSenders },
     { tab: "newsletters", label: "Newsletters", Icon: IconNewsletter },
     { tab: "rules", label: "Rules", Icon: IconRules },
+    { tab: "apps", label: "Apps & access", Icon: IconApps },
     { tab: "accounts", label: "Accounts", Icon: IconAccounts, badge: accountCount },
   ];
   const support: Item[] = [

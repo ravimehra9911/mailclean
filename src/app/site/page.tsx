@@ -7,6 +7,7 @@ import { DownloadCountsProvider, DownloadTotal } from "@/components/site/Downloa
 import { PROVIDER_LOGOS } from "@/components/site/ProviderLogos";
 import { StructuredData } from "@/components/site/StructuredData";
 import { CompareTable } from "@/components/site/CompareTable";
+import { Gallery } from "@/components/site/Gallery";
 import { DESCRIPTION, DEVELOPER, GOOGLE_SITE_VERIFICATION, KEYWORDS, SITE_NAME, SITE_URL, TITLE } from "@/lib/site";
 import { CleanupDemo, CountUp, Downloads, Reveal, ScrollProgress, SpotlightGrid, Tilt } from "@/components/site/Effects";
 
@@ -77,12 +78,12 @@ const FEATURES = [
   { title: "Cleaning suggestions", text: "Senders you never open, mail older than a year, your Promotions tab — one click to review each.", isNew: true },
   { title: "Gmail tabs & dates", text: "Filter by Promotions, Updates, Social… or any date range, and clean only that." },
   { title: "Keep what matters", text: "Starred and important emails stay, and you can keep the newest few from each sender.", isNew: true },
-  { title: "All your accounts together", text: "Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox in one dashboard, with short account labels." },
+  { title: "Who has your email", text: "Every company that has your address, with security alerts, old accounts and one-click links to review app access.", isNew: true },
   { title: "Private by design", text: "Runs on your computer. Only sender, date, size and flags are saved — never subject lines or message content." },
 ];
 
 // Shown as a pill in the hero; update with each feature release.
-const WHATS_NEW = { version: "1.5", text: "Rules that clean for you · cleaner Overview", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.5.1" };
+const WHATS_NEW = { version: "1.6", text: "See who has your email and which apps can access it", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.6.0" };
 
 
 const SHOTS = [
@@ -90,7 +91,7 @@ const SHOTS = [
   { src: "/screenshots/senders-light.png", alt: "Sender table sorted by number of emails with account and Gmail tab labels", caption: "Senders, sortable by any column" },
   { src: "/screenshots/gmail-promotions-dark.png", alt: "Senders filtered to Gmail's Promotions tab", caption: "Clean just your Promotions tab" },
   { src: "/screenshots/bulk-unsubscribe-light.png", alt: "Bulk unsubscribe dialog listing what will happen for each sender", caption: "Bulk unsubscribe, reviewed before it runs" },
-  { src: "/screenshots/filter-dark.png", alt: "Dashboard filtered to a single year", caption: "Filter by year or custom dates" },
+  { src: "/screenshots/apps-access-light.png", alt: "Accounts and apps page listing companies that have your email address", caption: "See who has your email" },
   { src: "/screenshots/add-account-light.png", alt: "Add account screen with provider picker and app-password steps", caption: "Connect with an app password" },
 ];
 
@@ -114,6 +115,10 @@ const FAQ = [
   {
     q: "Can MailClean clean up automatically?",
     a: "Yes. Add a rule — for example “always trash emails from this sender” or “archive Gmail Promotions older than 30 days” — and MailClean applies it after every sync, and every 6 hours while the app is open. Starred and important emails are always kept.",
+  },
+  {
+    q: "Can MailClean show which apps have access to my account?",
+    a: "MailClean links straight to Google's, Yahoo's, Apple's and Microsoft's own pages that list the apps with access to your account, so you can review and remove them there. It also lists every company that has emailed you, flags security alerts and accounts you haven't heard from in a year — built from sender addresses it already has.",
   },
   {
     q: "How does bulk unsubscribe work?",
@@ -264,19 +269,7 @@ export default async function SitePage() {
           <div className="mx-auto max-w-6xl px-4 py-20">
             <h2 className="text-center text-3xl font-semibold">See it in action</h2>
             <p className="mt-3 text-center text-subtle">Light and dark mode, on every platform. Shown with sample data.</p>
-            <div className="mt-10 grid gap-6 md:grid-cols-2">
-              {SHOTS.map((s, i) => (
-                <Reveal key={s.src} delay={(i % 2) * 120}>
-                  <figure>
-                    <a href={s.src} className="group block overflow-hidden rounded-xl border border-line bg-card shadow-lg transition hover:-translate-y-1 hover:shadow-2xl">
-                      <img src={s.src} alt={s.alt} width={1440} height={900} loading="lazy"
-                        className="w-full transition duration-500 group-hover:scale-[1.03]" />
-                    </a>
-                    <figcaption className="mt-3 text-center text-sm text-subtle">{s.caption}</figcaption>
-                  </figure>
-                </Reveal>
-              ))}
-            </div>
+            <Gallery shots={SHOTS} />
           </div>
         </section>
 

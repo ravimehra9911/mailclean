@@ -26,6 +26,7 @@ const SHOTS = [
   { name: "bulk-unsubscribe-light", theme: "light", steps: [clickText("Newsletters"),
     `[...document.querySelectorAll("tbody input[type=checkbox]")].slice(0, 5).forEach((c) => c.click())`, clickText("Unsubscribe")] },
   { name: "filter-dark", theme: "dark", steps: [setSelect("Date range", `year:${new Date().getFullYear() - 1}`)] },
+  { name: "apps-access-light", theme: "light", steps: [clickText("Apps & access")] },
   { name: "add-account-light", theme: "light", steps: [clickText("Accounts"), clickText("Gmail")] },
 ];
 
