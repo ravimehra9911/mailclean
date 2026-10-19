@@ -82,7 +82,7 @@ const FEATURES = [
 ];
 
 // Shown as a pill in the hero; update with each feature release.
-const WHATS_NEW = { version: "1.5", text: "Rules that clean for you · cleaning suggestions", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.5.0" };
+const WHATS_NEW = { version: "1.5", text: "Rules that clean for you · cleaner Overview", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.5.1" };
 
 
 const SHOTS = [
@@ -406,7 +406,6 @@ export default async function SitePage() {
           </span>
           <span>MIT License</span>
           <a href="/compare" className="hover:text-ink">Compare</a>
-          <a href="/vs/clean-email" className="hover:text-ink">vs Clean Email</a>
           <AnalyticsSettings />
           <a href={GITHUB_USER} className="ml-auto flex items-center gap-2 hover:text-ink">
             <GitHubIcon className="size-4" /> Built by <b className="font-medium text-ink">@ravimehra9911</b>

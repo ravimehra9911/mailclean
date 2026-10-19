@@ -18,6 +18,9 @@ export interface Overview {
   suggestions: {
     old: { count: number; bytes: number; before: number };
     neverOpened: { senders: number; count: number; bytes: number };
+    newsletters: { count: number; bytes: number };
+    /** Every email in at least one suggestion (never opened, older than a year, newsletter), counted once. */
+    freeable: { count: number; bytes: number };
   };
 }
 
@@ -119,6 +122,15 @@ export function overview(scope: Scope): Overview {
     (SELECT COUNT(*) c, SUM(unread) u, SUM(size) b FROM messages m ${w} GROUP BY from_email HAVING c >= 10 AND u * 1.0 / c >= 0.9)`)
     .get(...args) as { senders: number; count: number; bytes: number };
 
+  const nl = d.prepare(`SELECT COUNT(*) count, COALESCE(SUM(size),0) bytes FROM messages m
+    ${whereOf(conds, ["(m.unsub_http IS NOT NULL OR m.unsub_mailto IS NOT NULL)"])}`).get(...args) as { count: number; bytes: number };
+  const inner = scopeSql(scope, "u");
+  const freeable = d.prepare(`SELECT COUNT(*) count, COALESCE(SUM(size),0) bytes FROM messages m ${whereOf(conds, [`(m.date < ?
+      OR m.unsub_http IS NOT NULL OR m.unsub_mailto IS NOT NULL
+      OR m.from_email IN (SELECT u.from_email FROM messages u ${whereOf(inner.conds)} GROUP BY u.from_email
+        HAVING COUNT(*) >= 10 AND SUM(u.unread) * 1.0 / COUNT(*) >= 0.9))`])}`)
+    .get(...args, before, ...inner.args) as { count: number; bytes: number };
+
   return {
     emails: totals.emails,
     bytes: totals.bytes,
@@ -131,7 +143,7 @@ export function overview(scope: Scope): Overview {
     byAccount,
     years,
     categories,
-    suggestions: { old: { ...old, before }, neverOpened },
+    suggestions: { old: { ...old, before }, neverOpened, newsletters: nl, freeable },
   };
 }
 
@@ -145,7 +157,7 @@ const SORT_SQL: Record<SenderSort, string> = {
   account: "LOWER(first_account)",
   count: "count",
   bytes: "bytes",
-  unread: "unread * 1.0 / count",
+  unread: "SUM(m.unread) * 1.0 / COUNT(*)",
   last: "last",
 };
 
@@ -158,7 +170,8 @@ export function senders(opts: Scope & {
   if (q) { conds.push("(m.from_email LIKE ? OR m.from_name LIKE ?)"); args.push(`%${q}%`, `%${q}%`); }
   const having =
     filter === "newsletters" ? "HAVING can_unsub > 0"
-    : filter === "mostly-unread" ? "HAVING count >= 10 AND unread * 1.0 / count >= 0.9"
+    // Aggregates spelled out: in HAVING, SQLite reads "unread" as the messages column, not the SUM alias.
+    : filter === "mostly-unread" ? "HAVING COUNT(*) >= 10 AND SUM(m.unread) * 1.0 / COUNT(*) >= 0.9"
     : "";
   const order = `${SORT_SQL[sort] ?? SORT_SQL.count} ${dir}, count DESC, email ASC`;
 

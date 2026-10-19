@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
   },
   // Keep the IMAP client as a plain Node dependency instead of bundling it.
   serverExternalPackages: ["imapflow"],
+  // The single-competitor page was folded into /compare; keep old links working.
+  async redirects() {
+    return [{ source: "/vs/clean-email", destination: "/compare", permanent: true }];
+  },
 };
 
 export default nextConfig;

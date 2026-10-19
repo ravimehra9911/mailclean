@@ -72,10 +72,6 @@ export default function ComparePage() {
           ))}
         </section>
 
-        <p className="mt-8 text-sm text-subtle">
-          Detailed comparison: <a href="/vs/clean-email" className="text-accent underline-offset-2 hover:underline">MailClean vs Clean Email →</a>
-        </p>
-
         <section className="mt-12 rounded-2xl border border-line bg-card p-8 text-center">
           <h2 className="text-2xl font-semibold">Try MailClean free</h2>
           <p className="mx-auto mt-2 max-w-xl text-subtle">No account, no subscription. Download the app, or try the web demo with sample data first.</p>

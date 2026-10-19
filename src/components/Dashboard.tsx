@@ -10,11 +10,12 @@ import { Sidebar, type Tab } from "./Sidebar";
 import { AboutPage, HelpPage, PrivacyPage } from "./Pages";
 import { IconRefresh } from "./Icons";
 import { UpdateBanner, useUpdates } from "./Updates";
-import { api, fmtBytes, fmtNum, pct, type Account, type Overview } from "./api";
-import { AccountChip, SendersTable, type KeepOptions } from "./SendersTable";
-import { CATEGORY_INFO, CategoryFilter, type GmailCategory } from "./categories";
+import { api, fmtNum, pct, type Account, type Overview } from "./api";
+import { SendersTable, type KeepOptions } from "./SendersTable";
+import { CategoryFilter, type GmailCategory } from "./categories";
 import { VolumeChart } from "./VolumeChart";
 import { RulesPage } from "./Rules";
+import { CleanupNext, GmailTabsList, Headline } from "./OverviewCards";
 
 type Toast = { msg: string; kind: "ok" | "err" } | null;
 
@@ -158,51 +159,21 @@ export default function Dashboard() {
             </header>
 
             {syncing && tab !== "accounts" && tab !== "rules" && <SyncBanner accounts={accounts} />}
-            {tab === "overview" && accounts.filter((a) => a.notice && (!accountId || a.id === accountId)).map((a) => (
-              <div key={a.id} className="mb-6 rounded-xl border border-[#b7791f]/40 bg-[#b7791f]/10 px-5 py-3 text-sm">
-                <b>{a.email}:</b> {a.notice}
-              </div>
-            ))}
-
             {tab === "overview" && ov && (
               <div className="space-y-6">
-                <div data-tour="summary"><Summary ov={ov} period={rangeLabel(range)} onMostlyUnread={() => { setSendersFilter("mostly-unread"); setTab("senders"); }} /></div>
-                {!accountId && ov.byAccount.length > 1 && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {ov.byAccount.map((s) => (
-                      <button key={s.account_id} onClick={() => setAccountId(s.account_id)}
-                        className="rounded-xl border border-line bg-card px-5 py-4 text-left hover:border-accent">
-                        <AccountChip share={s} showCount={false} />
-                        <div className="mt-2 flex items-baseline gap-2">
-                          <span className="text-2xl font-semibold tabular-nums">{fmtNum(s.count)}</span>
-                          <span className="text-sm text-subtle">emails · {fmtBytes(s.bytes)} · {pct(s.count ? s.unread / s.count : 0)} unread</span>
-                        </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full" style={{ width: pct(ov.emails ? s.count / ov.emails : 0), background: providerInfo(s.provider).color }} />
-                        </div>
-                        <div className="mt-1 text-xs text-subtle">{pct(ov.emails ? s.count / ov.emails : 0)} of all your mail · click to view only this inbox</div>
-                      </button>
-                    ))}
+                <Headline ov={ov} accounts={accounts} period={rangeLabel(range)} onAccount={setAccountId} />
+                <div className={`grid gap-6 ${ov.categories.length ? "lg:grid-cols-5" : ""}`}>
+                  <div className={ov.categories.length ? "lg:col-span-3" : ""}>
+                    <CleanupNext ov={ov} onPick={(p) => {
+                      if (p === "never-opened") { setSendersFilter("mostly-unread"); setTab("senders"); }
+                      else if (p === "old") { setRange({ key: "custom", to: ov.suggestions.old.before }); openTab("senders"); }
+                      else openTab("newsletters");
+                    }} />
                   </div>
-                )}
-                <Suggestions ov={ov} category={category} onPick={(s) => {
-                  if (s.range) setRange(s.range);
-                  if (s.category) setCategory(s.category);
-                  setSendersFilter(s.filter ?? "all");
-                  setTab(s.tab);
-                }} />
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <Stat label="Emails" value={fmtNum(ov.emails)} />
-                  <Stat label="Storage used" value={fmtBytes(ov.bytes)} />
-                  <Stat label="Unread" value={pct(ov.emails ? ov.unread / ov.emails : 0)} sub={`${fmtNum(ov.unread)} emails`} />
-                  <Stat label="Newsletters" value={fmtNum(ov.newsletters)} sub={`of ${fmtNum(ov.senders)} senders`} />
+                  {ov.categories.length > 0 && (
+                    <div className="lg:col-span-2"><GmailTabsList categories={ov.categories} selected={category} onSelect={setCategory} /></div>
+                  )}
                 </div>
-                {ov.categories.length > 0 && (
-                  <Card title="Gmail tabs" sub={category ? `showing ${CATEGORY_INFO[category].label} only` : "click one to filter everything by it"}
-                    action={category && <button onClick={() => setCategory("")} className="text-sm text-accent">Show all</button>}>
-                    <GmailTabs categories={ov.categories} selected={category} onSelect={setCategory} />
-                  </Card>
-                )}
                 <Card title="Emails received" sub={`per week, ${rangeLabel(range) ?? "last 6 months"}`}>
                   <VolumeChart daily={ov.daily} />
                 </Card>
@@ -232,91 +203,6 @@ export default function Dashboard() {
   );
 }
 
-function Summary({ ov, period, onMostlyUnread }: { ov: Overview; period: string | null; onMostlyUnread: () => void }) {
-  return (
-    <div className="rounded-xl border border-line bg-card px-5 py-4 text-sm leading-relaxed">
-      {period && <span className="mr-1 rounded-md bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent">{period}</span>}
-      <b>{fmtNum(ov.emails)} emails</b> · ~{fmtBytes(ov.bytes)} · <b>{pct(ov.emails ? ov.unread / ov.emails : 0)} unread</b>
-      {" · "}your top 10 senders are <b>{pct(ov.top10Share)}</b> of your mail
-      {ov.mostlyUnreadSenders > 0 && <>{" · "}<button onClick={onMostlyUnread} className="font-medium text-danger underline-offset-2 hover:underline">
-        {ov.mostlyUnreadSenders} senders are ≥90% unread →</button></>}
-    </div>
-  );
-}
-
-type Pick = { tab: Tab; filter?: "mostly-unread"; range?: DateRange; category?: GmailCategory };
-
-/** Ready-made clean-ups: each card opens the senders that match, already filtered. */
-function Suggestions({ ov, category, onPick }: { ov: Overview; category: GmailCategory | ""; onPick: (p: Pick) => void }) {
-  const { old, neverOpened } = ov.suggestions;
-  const cat = (c: GmailCategory) => ov.categories.find((x) => x.category === c);
-  const items: { key: string; title: string; text: string; size: number; pick: Pick }[] = [];
-  if (neverOpened.count) items.push({ key: "unread", title: "Senders you never open", size: neverOpened.bytes,
-    text: `${fmtNum(neverOpened.senders)} senders · ${fmtNum(neverOpened.count)} emails`, pick: { tab: "senders", filter: "mostly-unread" } });
-  if (old.count) items.push({ key: "old", title: "Older than a year", size: old.bytes,
-    text: `${fmtNum(old.count)} emails before ${new Date(old.before).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}`,
-    pick: { tab: "senders", range: { key: "custom", to: old.before } } });
-  for (const c of ["promotions", "social"] as const) {
-    const x = cat(c);
-    if (x?.count && category !== c) items.push({ key: c, title: `Gmail ${CATEGORY_INFO[c].label}`, size: x.bytes,
-      text: `${fmtNum(x.count)} emails · ${pct(x.unread / x.count)} unread`, pick: { tab: "senders", category: c } });
-  }
-  if (ov.newsletters) items.push({ key: "nl", title: "Newsletters", size: 0,
-    text: `${fmtNum(ov.newsletters)} senders to unsubscribe from`, pick: { tab: "newsletters" } });
-  if (!items.length) return null;
-  return (
-    <section data-tour="suggestions" className="rounded-xl border border-line bg-card p-5">
-      <div className="mb-3 flex items-baseline gap-2">
-        <h2 className="font-semibold">Cleaning suggestions</h2>
-        <span className="text-sm text-subtle">quick wins — click one to review the senders</span>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {items.map((s) => (
-          <button key={s.key} onClick={() => onPick(s.pick)}
-            className="group flex items-center gap-3 rounded-lg border border-line px-4 py-3 text-left transition-colors hover:border-accent hover:bg-accent/5">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="truncate font-medium">{s.title}</span>
-                {s.size > 0 && <span className="ml-auto shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums">{fmtBytes(s.size)}</span>}
-              </div>
-              <div className="mt-0.5 truncate text-xs text-subtle" title={s.text}>{s.text}</div>
-            </div>
-            <span aria-hidden className="text-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-accent">→</span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/** One tile per Gmail tab: how much mail it holds and how much of it is unread. */
-function GmailTabs({ categories, selected, onSelect }: {
-  categories: Overview["categories"]; selected: GmailCategory | ""; onSelect: (c: GmailCategory | "") => void;
-}) {
-  const total = categories.reduce((a, c) => a + c.count, 0);
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      {categories.map((c) => {
-        const info = CATEGORY_INFO[c.category];
-        const active = selected === c.category;
-        return (
-          <button key={c.category} onClick={() => onSelect(active ? "" : c.category)} aria-pressed={active}
-            className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${active ? "border-accent bg-accent/10" : "border-line hover:border-accent"}`}>
-            <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: info.color }}>
-              <span className="size-2 rounded-full" style={{ background: info.color }} aria-hidden />{info.label}
-            </div>
-            <div className="mt-1 text-lg font-semibold tabular-nums">{fmtNum(c.count)}</div>
-            <div className="text-xs text-subtle">{pct(c.count ? c.unread / c.count : 0)} unread</div>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
-              <div className="h-full" style={{ width: pct(total ? c.count / total : 0), background: info.color }} />
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 const KEEP_FLAGGED_KEY = "mailclean-keep-flagged";
 const KEEP_NEWEST_KEY = "mailclean-keep-newest";
 
@@ -336,16 +222,6 @@ function useKeepOptions(): [KeepOptions, (k: KeepOptions) => void] {
     } catch { /* not saved */ }
   };
   return [keep, update];
-}
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-xl border border-line bg-card px-5 py-4">
-      <div className="text-xs uppercase tracking-wide text-subtle">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
-      {sub && <div className="text-xs text-subtle">{sub}</div>}
-    </div>
-  );
 }
 
 function Card({ title, sub, action, children }: { title: string; sub?: string; action?: React.ReactNode; children: React.ReactNode }) {

@@ -29,6 +29,8 @@ export interface Overview {
   suggestions: {
     old: { count: number; bytes: number; before: number };
     neverOpened: { senders: number; count: number; bytes: number };
+    newsletters: { count: number; bytes: number };
+    freeable: { count: number; bytes: number };
   };
 }
 

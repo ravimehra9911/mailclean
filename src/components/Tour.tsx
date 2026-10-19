@@ -95,7 +95,8 @@ function introSteps(d: () => Driver, setTab: (t: Tab) => void): DriveStep[] {
     { element: el("date-filter"), popover: { title: "Filter by date", description: "Look at all time, the last 30 days, a whole year, or pick your own start and end dates.", side: "bottom" } },
     { element: el("account-filter"), popover: { title: "Choose an inbox", description: "See all your accounts together, or one at a time.", side: "bottom" } },
     { element: el("sync"), popover: { title: "Sync", description: "Deleted or received emails in Gmail or Yahoo directly? Click <b>Sync</b> to rescan so the numbers stay up to date.", side: "bottom" } },
-    { element: el("summary"), popover: { title: "Your inbox at a glance", description: "How many emails, how much storage, how much is unread — and which senders you never open.", side: "bottom" } },
+    { element: el("summary"), popover: { title: "Your inbox at a glance", description: "How much space you can free up, your totals, and how mail splits across your accounts.", side: "bottom" } },
+    { element: el("cleanup"), popover: { title: "Clean up next", description: "The quickest wins: senders you never open, mail older than a year, newsletters. Click <b>Review</b> to see those senders.", side: "top" } },
     {
       element: el("senders-table"),
       popover: { title: "Who fills your inbox", description: "Every sender ranked by emails, size and unread. Labels show which inbox each sender's emails are in.", side: "top" },
