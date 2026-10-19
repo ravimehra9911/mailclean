@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   UNIQUE(provider, email)
 );
 
--- Metadata only: we never store subjects or bodies.
+-- Metadata only: subjects and bodies are never stored (and never requested, except inside Yahoo/AOL header blocks).
 CREATE TABLE IF NOT EXISTS messages (
   account_id   TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   msg_id       TEXT NOT NULL,

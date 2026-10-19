@@ -78,7 +78,7 @@ const FEATURES = [
   { title: "Gmail tabs & dates", text: "Filter by Promotions, Updates, Social… or any date range, and clean only that." },
   { title: "Keep what matters", text: "Starred and important emails stay, and you can keep the newest few from each sender.", isNew: true },
   { title: "All your accounts together", text: "Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox in one dashboard, with short account labels." },
-  { title: "Private by design", text: "Runs on your computer. Only sender, date, size and flags are read — never subjects or message content." },
+  { title: "Private by design", text: "Runs on your computer. Only sender, date, size and flags are saved — never subject lines or message content." },
 ];
 
 // Shown as a pill in the hero; update with each feature release.
@@ -101,7 +101,7 @@ const FAQ = [
   },
   {
     q: "Does MailClean read my emails?",
-    a: "No. It reads only each email's sender, date, size, read/starred status, Gmail tab and the sender's unsubscribe link. Subjects, message text and attachments are never downloaded, and nothing is sent to any MailClean server — there isn't one.",
+    a: "No. MailClean asks your provider only for each email's sender, date, size, read/starred status, Gmail tab and unsubscribe link, and saves only those. Subject lines are never saved or shown — Yahoo and AOL send the whole header block, so MailClean picks out the sender and unsubscribe link and discards the rest. Message text and attachments are never downloaded, and nothing is sent to any MailClean server — there isn't one.",
   },
   {
     q: "Can I clean only my Gmail Promotions tab?",
@@ -315,7 +315,7 @@ export default async function SitePage() {
             <ul className="space-y-3 text-sm">
               {[
                 "No MailClean server, account or tracking",
-                "Reads only sender, date, size and flags — never subjects or content",
+                "Saves only sender, date, size and flags — never subjects or content",
                 "Starred and important emails are kept when you clean up",
                 "Passwords encrypted on your device (AES-256-GCM)",
                 "Nothing permanently deleted — Trash keeps mail for ~30 days",

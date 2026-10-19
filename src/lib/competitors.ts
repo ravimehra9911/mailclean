@@ -1,5 +1,5 @@
 // Facts for the website's comparison chart (/compare and the landing page). Each competitor fact comes from
-// that company's own website unless noted, checked in October 2026 — re-check before changing.
+// that company's own website, checked in October 2026 — re-check before changing.
 // true = yes, false = no, string = shown as written (partial or detail).
 
 export type Fact = boolean | string;
@@ -40,7 +40,7 @@ export const MAILCLEAN: Tool = {
     onDevice: true,
     noDataSale: true,
     openSource: true,
-    reads: "Sender, date, size and flags — never subjects",
+    reads: "Sender, date, size and flags — subject lines never saved",
     bulk: true,
     unsubscribe: true,
     rules: true,
@@ -98,14 +98,6 @@ export const COMPETITORS: Tool[] = [
       price: "Free tier; Pro $5.99/month", free: "Free tier (1 account)", onDevice: true, noDataSale: true, openSource: false,
       reads: "Processed on your phone", bulk: true, unsubscribe: true, rules: "Pro: filters and blocking",
       apps: "iPhone, iPad, Mac", outlook: true,
-    },
-  },
-  {
-    id: "unlistr", name: "Unlistr", source: "https://clean.email/best-unlistr-alternative",
-    facts: {
-      price: "Not published", free: "Limited free version", onDevice: "Not stated", noDataSale: "Not stated", openSource: false,
-      reads: "Not stated", bulk: false, unsubscribe: true, rules: false,
-      apps: "Outlook add-in (availability unclear)", outlook: true,
     },
   },
 ];

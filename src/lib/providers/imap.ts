@@ -1,6 +1,6 @@
 import { ImapFlow, type ListResponse } from "imapflow";
 import { CATEGORY_PRIORITY, type GmailCategory, type MessageMeta } from "../db";
-import { parseListUnsubscribe } from "../headers";
+import { parseFrom, parseListUnsubscribe } from "../headers";
 import { chunk } from "./types";
 
 /** Connection details for an app-password IMAP account. */
@@ -184,21 +184,24 @@ export async function imapSync(
             try {
               const box = c.mailbox;
               if (!box) break;
+              // Only the header fields we use — not the IMAP envelope, which includes the subject line.
+              // Yahoo/AOL can't return single fields (see fullHeaders); their header block is parsed for these only.
               for await (const m of c.fetch(range, {
-                uid: true, flags: true, size: true, internalDate: true, envelope: true, labels: allMail,
-                headers: cfg.fullHeaders ? true : ["list-unsubscribe", "list-unsubscribe-post"],
+                uid: true, flags: true, size: true, internalDate: true, labels: allMail,
+                headers: cfg.fullHeaders ? true : ["from", "date", "list-unsubscribe", "list-unsubscribe-post"],
               })) {
                 const labels = m.labels ?? new Set<string>();
                 // In Gmail's All Mail, skip your own sent mail and drafts unless they are also in the inbox.
                 if (allMail && (labels.has("\\Sent") || labels.has("\\Draft")) && !labels.has("\\Inbox")) continue;
                 const raw = m.headers?.toString("utf8") ?? "";
                 const unsub = parseListUnsubscribe(headerValue(raw, "List-Unsubscribe"), headerValue(raw, "List-Unsubscribe-Post"));
-                const sender = m.envelope?.from?.[0];
+                const sender = parseFrom(headerValue(raw, "From"));
+                const sent = Date.parse(headerValue(raw, "Date") ?? "");
                 rows.push({
                   msg_id: makeId(box.uidValidity, m.uid, f.path),
-                  from_email: (sender?.address ?? "unknown").toLowerCase(),
-                  from_name: sender?.name || null,
-                  date: new Date(m.internalDate ?? m.envelope?.date ?? Date.now()).getTime(),
+                  from_email: sender.email,
+                  from_name: sender.name,
+                  date: m.internalDate ? new Date(m.internalDate).getTime() : Number.isNaN(sent) ? Date.now() : sent,
                   size: m.size ?? 0,
                   unread: !m.flags?.has("\\Seen"),
                   in_inbox: allMail ? labels.has("\\Inbox") : folderIsInbox,

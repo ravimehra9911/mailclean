@@ -20,8 +20,9 @@ Features: sender report by count, size and unread rate · bulk Trash/Archive · 
 filter by year or custom dates · sort by any column · light and dark mode · several accounts at once.
 
 **Privacy:** everything runs and stays on the user's device; there is no MailClean server or account.
-Only metadata is stored (sender, date, size, read/inbox status, unsubscribe link); subjects and bodies are
-never fetched. Passwords and tokens are encrypted (AES-256-GCM) in a local SQLite database.
+Only metadata is requested and stored (sender, date, size, read/inbox/starred status, Gmail tab, unsubscribe
+link). Subject lines are never stored or shown; Yahoo and AOL only return whole header blocks, which MailClean
+parses for the sender and unsubscribe link and then discards. Message bodies and attachments are never fetched. Passwords and tokens are encrypted (AES-256-GCM) in a local SQLite database.
 
 ## How users connect accounts
 

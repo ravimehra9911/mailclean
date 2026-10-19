@@ -101,7 +101,7 @@ export function PrivacyPage({ dataDir }: { dataDir: string }) {
   const sections = [
     {
       title: "What MailClean reads",
-      body: <>For each email only the sender, date, size, read/inbox/starred status, Gmail tab (Promotions, Updates…) and the sender&apos;s unsubscribe link. Subjects, message text and attachments are never downloaded.</>,
+      body: <>For each email, MailClean asks your provider only for the sender, date, size, read/inbox/starred status, Gmail tab (Promotions, Updates…) and unsubscribe link, and saves only those. Subject lines are never saved or shown — Yahoo and AOL send the whole header block, so MailClean picks out the sender and unsubscribe link and discards the rest. Message text and attachments are never downloaded.</>,
     },
     {
       title: "Where your data lives",

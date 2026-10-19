@@ -307,7 +307,7 @@ function Welcome(props: ConnectProps) {
         <h1 className="text-3xl font-semibold">All your inboxes. One clean-up.</h1>
         <p className="mx-auto mt-3 max-w-xl text-subtle">
           See which senders fill your Gmail, Yahoo, iCloud and other inboxes, unsubscribe from newsletters and trash
-          thousands of emails in a click. Only sender, date and size are read — never subjects or message content —
+          thousands of emails in a click. Only sender, date and size are saved — never subject lines or message content —
           and everything stays on this device.
         </p>
       </div>

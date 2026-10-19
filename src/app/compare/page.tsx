@@ -40,7 +40,7 @@ export default function ComparePage() {
         <p className="mt-4 max-w-3xl text-lg leading-relaxed text-subtle">
           Most inbox cleaners are cloud services: they connect to your mailbox from their servers, and some free ones pay
           for themselves with data from your email. MailClean runs on your own computer, is free and open source, and
-          never reads your subject lines.
+          never saves your subject lines.
         </p>
 
         <div className="mt-10"><CompareTable /></div>
@@ -48,7 +48,7 @@ export default function ComparePage() {
         <div className="mt-4 text-xs leading-relaxed text-subtle">
           <p>
             Facts about other services are taken from their own websites in {CHECKED} and may have changed; quotes are
-            from those sites. Unlistr has no current official page, so its details come from third-party reviews.
+            from those sites.
             Product names are trademarks of their owners; MailClean is not affiliated with them.
           </p>
           <p className="mt-2">
