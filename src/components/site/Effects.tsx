@@ -194,7 +194,10 @@ export interface DownloadItem {
   id: string;
   downloads: number;
   /** Install and first-launch steps, shown in a popup from the "How to install" pill. */
-  install?: { steps: readonly string[]; req: string };
+  install?: {
+    steps: readonly string[]; req: string;
+    why?: { text: string; images: readonly { src: string; alt: string }[] };
+  };
 }
 
 export function Downloads({ items }: { items: DownloadItem[] }) {
@@ -268,7 +271,7 @@ function InstallHelp({ item, onClose, onDownload }: {
   return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="install-title" onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl border border-line bg-card p-6 shadow-2xl">
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-card p-6 shadow-2xl">
         <div className="flex items-start gap-3">
           <span className="shrink-0">{item.icon}</span>
           <div className="min-w-0 flex-1">
@@ -280,6 +283,18 @@ function InstallHelp({ item, onClose, onDownload }: {
         <ol className="mt-5 list-decimal space-y-2.5 pl-5 text-sm leading-relaxed">
           {item.install!.steps.map((s) => <li key={s}>{s}</li>)}
         </ol>
+        {item.install!.why && (
+          <div className="mt-5 rounded-xl border border-[#b7791f]/30 bg-[#b7791f]/5 p-4">
+            <h3 className="text-sm font-semibold">Why does {item.os} show a warning?</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-subtle">{item.install!.why.text}</p>
+            <div className="mt-3 space-y-3">
+              {item.install!.why.images.map((im) => (
+                <img key={im.src} src={im.src} alt={im.alt} width={560} height={300} loading="lazy" className="w-full rounded-lg border border-line" />
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-subtle">Illustrations — the exact look depends on your {item.os} version.</p>
+          </div>
+        )}
         <p className="mt-5 rounded-lg bg-muted px-3 py-2 text-xs text-subtle"><b className="text-ink">Requires:</b> {item.install!.req}</p>
         <div className="mt-5 flex gap-2">
           <a href={item.href} data-track="download" data-track-label={item.id} onClick={onDownload} autoFocus

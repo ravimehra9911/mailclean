@@ -12,7 +12,14 @@ export const DOWNLOADS = [
 ] as const;
 
 /** Install and first-launch steps per platform, shown from the "How to install" pill on each download card. */
-export const INSTALL: Record<"mac" | "windows" | "linux", { steps: readonly string[]; req: string }> = {
+export interface InstallInfo {
+  steps: readonly string[];
+  req: string;
+  /** Why the system shows a warning on first launch, with pictures of what to click. */
+  why?: { text: string; images: readonly { src: string; alt: string }[] };
+}
+
+export const INSTALL: Record<"mac" | "windows" | "linux", InstallInfo> = {
   mac: {
     steps: [
       "Open the downloaded .dmg and drag MailClean into Applications.",
@@ -20,6 +27,13 @@ export const INSTALL: Record<"mac" | "windows" | "linux", { steps: readonly stri
       "Open System Settings → Privacy & Security, scroll down and click Open Anyway next to MailClean. You only do this once.",
     ],
     req: "macOS 12 Monterey or later · Apple Silicon (M1–M4) or Intel",
+    why: {
+      text: "MailClean is free and made by one developer. Apple charges a yearly fee ($99) to verify apps, so MailClean isn't verified by Apple yet. The app is open source, so anyone can check the code. macOS shows this once:",
+      images: [
+        { src: "/install/mac-step1.svg", alt: "macOS message: MailClean Not Opened. Apple could not verify MailClean. Click Done." },
+        { src: "/install/mac-step2.svg", alt: "System Settings, Privacy & Security: MailClean was blocked. Click Open Anyway." },
+      ],
+    },
   },
   windows: {
     steps: [
@@ -28,6 +42,13 @@ export const INSTALL: Record<"mac" | "windows" | "linux", { steps: readonly stri
       "Start MailClean from the Start menu or the desktop shortcut.",
     ],
     req: "Windows 10 or 11, 64-bit",
+    why: {
+      text: "MailClean is free and made by one developer. A code-signing certificate — which lets Windows recognise the publisher — costs money every year, so the Windows build isn't signed yet. The app is open source, so anyone can check the code. Windows shows this once:",
+      images: [
+        { src: "/install/windows-step1.svg", alt: "Windows protected your PC. Click More info." },
+        { src: "/install/windows-step2.svg", alt: "Windows protected your PC, Publisher: Unknown publisher. Click Run anyway." },
+      ],
+    },
   },
   linux: {
     steps: [

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 300" font-family="-apple-system, Helvetica, Arial, sans-serif">
+  <rect width="560" height="300" rx="10" fill="#e9e9ee"/>
+  <rect x="150" y="22" width="260" height="256" rx="16" fill="#fff" stroke="#d1d1d6"/>
+  <rect x="254" y="40" width="52" height="52" rx="12" fill="#f2f4ff" stroke="#c7cdfa"/>
+  <path d="M266 58 h28 v20 h-28z M266 58 l14 11 l14 -11" fill="none" stroke="#3b5bdb" stroke-width="3" stroke-linejoin="round"/>
+  <text x="280" y="118" font-size="14" font-weight="600" text-anchor="middle" fill="#1d1d1f">“MailClean” Not Opened</text>
+  <text x="280" y="142" font-size="11.5" text-anchor="middle" fill="#3a3a3c">Apple could not verify “MailClean” is</text>
+  <text x="280" y="158" font-size="11.5" text-anchor="middle" fill="#3a3a3c">free of malware that may harm your Mac</text>
+  <text x="280" y="174" font-size="11.5" text-anchor="middle" fill="#3a3a3c">or compromise your privacy.</text>
+  <rect x="170" y="194" width="220" height="30" rx="8" fill="#e5e5ea"/><text x="280" y="214" font-size="13" text-anchor="middle" fill="#1d1d1f">Done</text>
+  <rect x="170" y="232" width="220" height="30" rx="8" fill="#e5e5ea"/><text x="280" y="252" font-size="13" text-anchor="middle" fill="#1d1d1f">Move to Trash</text>
+  <rect x="164" y="188" width="232" height="42" rx="10" fill="none" stroke="#f59f00" stroke-width="3"/>
+  <text x="418" y="214" font-size="13" font-weight="600" fill="#c77700">1. Click “Done”</text>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 300" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif">
+  <rect width="560" height="300" rx="10" fill="#0a5ea8"/>
+  <text x="32" y="58" fill="#fff" font-size="26" font-weight="600">Windows protected your PC</text>
+  <text x="32" y="98" fill="#e6f0fa" font-size="14">Microsoft Defender SmartScreen prevented an unrecognized app from</text>
+  <text x="32" y="118" fill="#e6f0fa" font-size="14">starting. Running this app might put your PC at risk.</text>
+  <text x="32" y="156" fill="#fff" font-size="14">App:</text><text x="110" y="156" fill="#fff" font-size="14">MailClean-windows-x64.exe</text>
+  <text x="32" y="180" fill="#fff" font-size="14">Publisher:</text><text x="110" y="180" fill="#fff" font-size="14">Unknown publisher</text>
+  <rect x="262" y="236" width="126" height="36" fill="#1a1a1a" fill-opacity=".25" stroke="#fff" stroke-opacity=".7"/>
+  <text x="325" y="259" fill="#fff" font-size="14" text-anchor="middle">Run anyway</text>
+  <rect x="255" y="229" width="140" height="50" rx="6" fill="none" stroke="#ffd34d" stroke-width="3"/>
+  <rect x="402" y="236" width="126" height="36" fill="#1a1a1a" fill-opacity=".25" stroke="#fff" stroke-opacity=".7"/>
+  <text x="465" y="259" fill="#fff" font-size="14" text-anchor="middle">Don’t run</text>
+  <text x="250" y="215" fill="#ffd34d" font-size="14" font-weight="600" text-anchor="end">2. Click “Run anyway”</text>
+</svg>
