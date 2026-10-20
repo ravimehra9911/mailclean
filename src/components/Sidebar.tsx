@@ -55,7 +55,7 @@ export function Sidebar({ tab, setTab, accountCount, version, demo, onLock }: {
   return (
     <aside className="border-b border-line bg-card md:sticky md:top-0 md:flex md:h-screen md:w-60 md:shrink-0 md:flex-col md:border-r md:border-b-0">
       <div className="flex items-center gap-2.5 px-5 pt-5 pb-3">
-        <img src="/icon.svg" alt="" width={30} height={30} className="size-[30px]" />
+        <img src="/brand/mailclean-mark.png" alt="" width={43} height={24} className="h-6 w-auto" />
         <span className="text-[17px] font-semibold tracking-tight">MailClean</span>
       </div>
 

@@ -11,7 +11,7 @@
     "desktop:mac": "npm run desktop:prepare && electron-builder --mac",
     "desktop:win": "npm run desktop:prepare && electron-builder --win",
     "desktop:build": "npm run desktop:prepare && electron-builder --mac --win",
-    "desktop:icon": "electron scripts/make-icon.cjs",
+    "brand": "electron scripts/brand.cjs",
     "desktop:linux": "npm run desktop:prepare && electron-builder --linux",
     "desktop:all": "npm run desktop:prepare && electron-builder --mac --win --linux",
     "screenshots": "node scripts/screenshots.mjs",

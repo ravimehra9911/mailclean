@@ -24,7 +24,7 @@ export default function ComparePage() {
       <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
         <nav className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
           <a href="/" className="flex items-center gap-2 font-semibold">
-            <span className="grid size-8 place-items-center rounded-lg bg-accent text-white">✦</span> MailClean
+            <img src="/brand/mailclean-mark.png" alt="" width={50} height={28} className="h-7 w-auto" /> MailClean
           </a>
           <div className="ml-auto flex items-center gap-4 text-sm text-subtle">
             <a href="/#download" className="hidden hover:text-ink sm:inline">Download</a>

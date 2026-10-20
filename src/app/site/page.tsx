@@ -161,7 +161,7 @@ export default async function SitePage() {
       <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
           <a href="#" className="flex items-center gap-2 font-semibold">
-            <span className="grid size-8 place-items-center rounded-lg bg-accent text-white">✦</span> MailClean
+            <img src="/brand/mailclean-mark.png" alt="" width={50} height={28} className="h-7 w-auto" /> MailClean
           </a>
           <div className="ml-auto hidden items-center gap-5 text-sm text-subtle md:flex">
             <a href="#features" className="hover:text-ink">Features</a>
@@ -400,7 +400,7 @@ export default async function SitePage() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-8 text-sm text-subtle">
           <span className="flex items-center gap-2 font-medium text-ink">
-            <span className="grid size-6 place-items-center rounded-md bg-accent text-xs text-white">✦</span> MailClean
+            <img src="/brand/mailclean-mark.png" alt="" width={36} height={20} className="h-5 w-auto" /> MailClean
           </span>
           <span>MIT License</span>
           <a href="/compare" className="hover:text-ink">Compare</a>

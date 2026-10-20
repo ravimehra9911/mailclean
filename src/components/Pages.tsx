@@ -178,7 +178,7 @@ export function AboutPage({ version, updates }: {
       <PageTitle title="About" sub="The app, updates, and who made it." />
 
       <section className={`${card} flex flex-wrap items-center gap-4`}>
-        <img src="/icon.svg" alt="" width={56} height={56} className="size-14" />
+        <img src="/brand/mailclean-icon.png" alt="" width={56} height={56} className="size-14" />
         <div className="min-w-48 flex-1">
           <div className="text-lg font-semibold">MailClean</div>
           <div className="text-subtle">Clean up every inbox in one place.</div>
