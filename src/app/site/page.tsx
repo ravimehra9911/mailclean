@@ -6,6 +6,7 @@ import { HeroVideo } from "@/components/site/HeroVideo";
 import { DownloadCountsProvider, DownloadTotal } from "@/components/site/DownloadCounts";
 import { PROVIDER_LOGOS } from "@/components/site/ProviderLogos";
 import { StructuredData } from "@/components/site/StructuredData";
+import { DOWNLOADS, dl, INSTALL } from "@/components/site/Platforms";
 import { CompareTable } from "@/components/site/CompareTable";
 import { Gallery } from "@/components/site/Gallery";
 import { DESCRIPTION, DEVELOPER, GOOGLE_SITE_VERIFICATION, KEYWORDS, SITE_NAME, SITE_URL, TITLE } from "@/lib/site";
@@ -15,7 +16,6 @@ import { CleanupDemo, CountUp, Downloads, Reveal, ScrollProgress, SpotlightGrid,
 
 const REPO = "https://github.com/ravimehra9911/mailclean";
 const GITHUB_USER = "https://github.com/ravimehra9911";
-const dl = (file: string) => `${REPO}/releases/latest/download/${file}`;
 const VERSION = process.env.MAILCLEAN_VERSION ?? "";
 
 export const metadata: Metadata = {
@@ -53,12 +53,7 @@ export const metadata: Metadata = {
   },
 };
 
-const DOWNLOADS = [
-  { os: "macOS", detail: "Apple Silicon (M1–M4)", file: "MailClean-mac-arm64.dmg", id: "mac-arm64", key: "mac", arch: "arm", Icon: AppleIcon },
-  { os: "macOS", detail: "Intel", file: "MailClean-mac-x64.dmg", id: "mac-x64", key: "mac", arch: "x86", Icon: AppleIcon },
-  { os: "Windows", detail: "Windows 10/11, 64-bit", file: "MailClean-windows-x64.exe", id: "windows", key: "windows", Icon: WindowsIcon },
-  { os: "Linux", detail: "AppImage, x86-64", file: "MailClean-linux-x86_64.AppImage", id: "linux", key: "linux", Icon: LinuxIcon },
-] as const;
+
 
 // Rebuild the page hourly so the download counts stay current.
 export const revalidate = 3600;
@@ -168,7 +163,7 @@ export default async function SitePage() {
             <a href="#screenshots" className="hover:text-ink">Screenshots</a>
             <a href="#privacy" className="hover:text-ink">Privacy</a>
             <a href="#compare" className="hover:text-ink">Compare</a>
-            <a href="#download" className="hover:text-ink">Download</a>
+            <a href="/download" className="hover:text-ink">Download</a>
             <a href={REPO} data-track="github" className="hover:text-ink">GitHub</a>
           </div>
           <div className="ml-auto md:ml-0"><ThemeToggle /></div>
@@ -351,6 +346,7 @@ export default async function SitePage() {
             <Downloads items={DOWNLOADS.map((d) => ({
               os: d.os, detail: d.detail, key: d.key, arch: "arch" in d ? d.arch : undefined, href: dl(d.file),
               id: d.id, downloads: counts.byInstaller[d.id as InstallerKey], icon: <d.Icon className="size-8 text-ink" />,
+              install: INSTALL[d.key],
             }))} />
           </Reveal>
           <div className="mt-4 rounded-2xl border border-line bg-card p-6 text-center">
@@ -404,6 +400,7 @@ export default async function SitePage() {
           </span>
           <span>MIT License</span>
           <a href="/compare" className="hover:text-ink">Compare</a>
+          <a href="/download" className="hover:text-ink">Download</a>
           <a href="/privacy" className="hover:text-ink">Privacy policy</a>
           <AnalyticsSettings />
           <a href={GITHUB_USER} className="ml-auto flex items-center gap-2 hover:text-ink">
@@ -420,30 +417,6 @@ function GitHubIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" className={className} fill="currentColor" aria-hidden>
       <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
-    </svg>
-  );
-}
-
-function AppleIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
-      <path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.86-.76-1.47.02-2.83.86-3.59 2.17-1.53 2.65-.39 6.58 1.1 8.73.73 1.05 1.6 2.23 2.73 2.19 1.1-.04 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.4 1.2-2.46-.03-.01-2.3-.88-2.32-3.49ZM14.2 6.13c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.65-1.05 1.69-.92 2.68.97.08 1.96-.49 2.56-1.23Z" />
-    </svg>
-  );
-}
-
-function WindowsIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
-      <path d="M3 5.1 10.4 4v7.1H3V5.1Zm0 13.8 7.4 1.1v-7.1H3v6Zm8.2 1.2L21 21.5v-8.6h-9.8v7.2Zm0-16.2v7.2H21V2.5l-9.8 1.4Z" />
-    </svg>
-  );
-}
-
-function LinuxIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
-      <path d="M12 2c-2.2 0-3.6 1.9-3.6 4.6 0 1.4.2 2.3-.6 3.6-.9 1.4-2.6 3.5-2.6 6 0 .7.1 1.3.4 1.8-.6.3-1.6.6-1.6 1.4 0 1 1.6 1.2 3 1.7 1 .3 1.8.9 2.7.9.8 0 1.4-.4 1.8-.9h2.9c.4.5 1 .9 1.8.9.9 0 1.7-.6 2.7-.9 1.4-.5 3-.7 3-1.7 0-.8-1-1.1-1.6-1.4.3-.5.4-1.1.4-1.8 0-2.5-1.7-4.6-2.6-6-.8-1.3-.6-2.2-.6-3.6C15.6 3.9 14.2 2 12 2Zm-1.5 4.2c.4 0 .7.5.7 1.1s-.3 1.1-.7 1.1-.7-.5-.7-1.1.3-1.1.7-1.1Zm3 0c.4 0 .7.5.7 1.1s-.3 1.1-.7 1.1-.7-.5-.7-1.1.3-1.1.7-1.1ZM12 9.2c.8 0 2 .6 2 1s-1.2 1.2-2 1.2-2-.8-2-1.2 1.2-1 2-1Z" />
     </svg>
   );
 }

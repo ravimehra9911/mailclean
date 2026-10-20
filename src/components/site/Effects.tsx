@@ -4,6 +4,7 @@
 // prefers reduced motion (see globals.css).
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { confetti, ThankYou } from "./Celebrate";
 import { useDownloadCounts } from "./DownloadCounts";
 import type { InstallerKey } from "@/lib/downloads";
@@ -192,11 +193,14 @@ export interface DownloadItem {
   /** Installer id used for analytics and the download count, e.g. "mac-arm64". */
   id: string;
   downloads: number;
+  /** Install and first-launch steps, shown in a popup from the "How to install" pill. */
+  install?: { steps: readonly string[]; req: string };
 }
 
 export function Downloads({ items }: { items: DownloadItem[] }) {
   const { os, macArch } = useDetectedOs();
   const [thanks, setThanks] = useState<string | null>(null);
+  const [help, setHelp] = useState<DownloadItem | null>(null);
   const live = useDownloadCounts();
 
   // The link itself starts the download (GitHub serves it as a file, so the page stays);
@@ -210,15 +214,19 @@ export function Downloads({ items }: { items: DownloadItem[] }) {
   return (
     <>
     {thanks && <ThankYou installer={thanks} onClose={() => setThanks(null)} />}
+    {help?.install && <InstallHelp item={help} onClose={() => setHelp(null)} onDownload={(e) => { setHelp(null); celebrate(e, help.id); }} />}
     <SpotlightGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((d) => {
         // Highlight the card for this computer; for Macs only the matching chip when the browser tells us.
         const match = os === d.key && (!macArch || !d.arch || d.arch === macArch);
         const downloads = live?.byInstaller[d.id as InstallerKey] ?? d.downloads;
         return (
-          <a key={d.href} href={d.href} data-track="download" data-track-label={d.id} onClick={(e) => celebrate(e, d.id)}
+          <div key={d.href}
             className={`spot group relative overflow-hidden rounded-2xl border bg-card p-6 transition hover:-translate-y-1 hover:shadow-xl ${
               match ? "border-accent shadow-lg shadow-accent/15" : "border-line hover:border-accent"}`}>
+            {/* The whole card downloads; the "How to install" pill sits above this link. */}
+            <a href={d.href} data-track="download" data-track-label={d.id} onClick={(e) => celebrate(e, d.id)}
+              aria-label={`Download MailClean for ${d.os} (${d.detail})`} className="absolute inset-0 z-[1] rounded-2xl" />
             {match && (
               <span className="absolute top-3 right-3 rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-white">For your computer</span>
             )}
@@ -233,10 +241,53 @@ export function Downloads({ items }: { items: DownloadItem[] }) {
                 <span className="text-xs text-subtle tabular-nums">{downloads.toLocaleString("en-IN")} download{downloads === 1 ? "" : "s"}</span>
               )}
             </div>
-          </a>
+            {d.install && (
+              <button type="button" onClick={() => setHelp(d)} data-track="install_help" data-track-label={d.id}
+                className="relative z-[2] mt-3 inline-flex items-center gap-1 rounded-full border border-line bg-muted/60 px-2.5 py-0.5 text-xs text-subtle hover:border-accent hover:text-accent">
+                <span aria-hidden>ⓘ</span> How to install
+              </button>
+            )}
+          </div>
         );
       })}
     </SpotlightGrid>
     </>
+  );
+}
+
+/** Popup with install and first-launch steps for one installer. */
+function InstallHelp({ item, onClose, onDownload }: {
+  item: DownloadItem; onClose: () => void; onDownload: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  // Portal to <body>: the cards sit inside animated (transformed) sections, which would clip a fixed overlay.
+  return createPortal(
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-labelledby="install-title" onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl border border-line bg-card p-6 shadow-2xl">
+        <div className="flex items-start gap-3">
+          <span className="shrink-0">{item.icon}</span>
+          <div className="min-w-0 flex-1">
+            <h2 id="install-title" className="text-lg font-semibold">Install on {item.os}</h2>
+            <p className="text-sm text-subtle">{item.detail}</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="grid size-8 place-items-center rounded-lg text-subtle hover:bg-muted hover:text-ink">✕</button>
+        </div>
+        <ol className="mt-5 list-decimal space-y-2.5 pl-5 text-sm leading-relaxed">
+          {item.install!.steps.map((s) => <li key={s}>{s}</li>)}
+        </ol>
+        <p className="mt-5 rounded-lg bg-muted px-3 py-2 text-xs text-subtle"><b className="text-ink">Requires:</b> {item.install!.req}</p>
+        <div className="mt-5 flex gap-2">
+          <a href={item.href} data-track="download" data-track-label={item.id} onClick={onDownload} autoFocus
+            className="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-accent px-4 text-sm font-medium text-white hover:opacity-90">Download for {item.os}</a>
+          <button onClick={onClose} className="h-10 rounded-lg border border-line px-4 text-sm font-medium hover:bg-muted">Close</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

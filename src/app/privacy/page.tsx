@@ -39,7 +39,7 @@ export default function PrivacyPolicy() {
             <img src="/brand/mailclean-mark.png" alt="" width={50} height={28} className="h-7 w-auto" /> MailClean
           </a>
           <div className="ml-auto flex items-center gap-4 text-sm text-subtle">
-            <a href="/#download" className="hidden hover:text-ink sm:inline">Download</a>
+            <a href="/download" className="hidden hover:text-ink sm:inline">Download</a>
             <ThemeToggle />
           </div>
         </nav>

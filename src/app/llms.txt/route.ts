@@ -26,6 +26,7 @@ MailClean is a free, open-source (MIT) desktop app${VERSION ? ` (current version
 ## Download
 
 ${downloads}
+- [Download page with install steps](${SITE_URL}/download)
 - [All releases and release notes](${REPO_URL}/releases)
 
 ## How to get started

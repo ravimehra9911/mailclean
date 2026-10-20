@@ -27,7 +27,7 @@ export default function ComparePage() {
             <img src="/brand/mailclean-mark.png" alt="" width={50} height={28} className="h-7 w-auto" /> MailClean
           </a>
           <div className="ml-auto flex items-center gap-4 text-sm text-subtle">
-            <a href="/#download" className="hidden hover:text-ink sm:inline">Download</a>
+            <a href="/download" className="hidden hover:text-ink sm:inline">Download</a>
             <a href="/demo" className="hidden hover:text-ink sm:inline">Live demo</a>
             <a href="/privacy" className="hidden hover:text-ink sm:inline">Privacy</a>
             <ThemeToggle />
@@ -77,7 +77,7 @@ export default function ComparePage() {
           <h2 className="text-2xl font-semibold">Try MailClean free</h2>
           <p className="mx-auto mt-2 max-w-xl text-subtle">No account, no subscription. Download the app, or try the web demo with sample data first.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <a href="/#download" data-track="cta_download" className="inline-flex h-11 items-center rounded-xl bg-accent px-6 font-medium text-white hover:opacity-90">Download free</a>
+            <a href="/download" data-track="cta_download" className="inline-flex h-11 items-center rounded-xl bg-accent px-6 font-medium text-white hover:opacity-90">Download free</a>
             <a href="/demo" data-track="open_demo" className="inline-flex h-11 items-center rounded-xl border border-line px-6 font-medium hover:bg-muted">Try the live demo →</a>
           </div>
         </section>
