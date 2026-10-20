@@ -1,6 +1,7 @@
-import { ImapFlow, type ListResponse } from "imapflow";
+import { ImapFlow, type ListResponse, type MessageStructureObject } from "imapflow";
+import type { Readable } from "node:stream";
 import { CATEGORY_PRIORITY, type GmailCategory, type MessageMeta } from "../db";
-import { parseFrom, parseListUnsubscribe } from "../headers";
+import { decodeWords, parseFrom, parseListUnsubscribe } from "../headers";
 import { chunk } from "./types";
 
 /** Connection details for an app-password IMAP account. */
@@ -271,3 +272,94 @@ async function moveAll(cfg: ImapConfig, ids: string[], target: "trash" | "archiv
 
 export const imapTrash = (cfg: ImapConfig, ids: string[]) => moveAll(cfg, ids, "trash");
 export const imapArchive = (cfg: ImapConfig, ids: string[]) => moveAll(cfg, ids, "archive");
+
+/** An attached file found in a message's MIME structure (nothing is downloaded to find it). */
+export interface AttachmentRef {
+  /** Message id as stored in the messages table. */
+  id: string;
+  /** MIME part number, used to download just this file. */
+  part: string;
+  filename: string;
+  type: string;
+  /** Approximate decoded size in bytes. */
+  size: number;
+}
+
+function attachmentsIn(node: MessageStructureObject | undefined, out: Omit<AttachmentRef, "id">[]) {
+  if (!node) return;
+  if (node.childNodes?.length) {
+    for (const child of node.childNodes) attachmentsIn(child, out);
+    return;
+  }
+  const name = node.dispositionParameters?.filename ?? node.parameters?.name;
+  // A file name, or an explicit attachment disposition, marks a file; plain text/HTML bodies have neither.
+  if (!node.part || (!name && node.disposition !== "attachment")) return;
+  const encoded = node.size ?? 0;
+  out.push({
+    part: node.part,
+    filename: decodeWords(name ?? `attachment-${node.part}`).trim(),
+    type: (node.type || "application/octet-stream").toLowerCase(),
+    size: node.encoding?.toLowerCase() === "base64" ? Math.round(encoded * 0.75) : encoded,
+  });
+}
+
+/** Groups stored message ids by folder, as UIDs. */
+function byFolder(ids: string[]) {
+  const map = new Map<string, Map<number, string>>();
+  for (const id of ids) {
+    const { uid, path } = parseId(id);
+    if (!map.has(path)) map.set(path, new Map());
+    map.get(path)!.set(uid, id);
+  }
+  return map;
+}
+
+/** Lists the attachments in these messages by reading their MIME structure (BODYSTRUCTURE) only. */
+export async function imapListAttachments(cfg: ImapConfig, ids: string[]): Promise<AttachmentRef[]> {
+  const found: AttachmentRef[] = [];
+  await withClient(cfg, async (c) => {
+    for (const [path, uids] of byFolder(ids)) {
+      const lock = await c.getMailboxLock(path, { readOnly: true });
+      try {
+        for (const part of chunk([...uids.keys()], 500)) {
+          for await (const m of c.fetch(part.join(","), { uid: true, bodyStructure: true }, { uid: true })) {
+            const files: Omit<AttachmentRef, "id">[] = [];
+            attachmentsIn(m.bodyStructure, files);
+            const id = uids.get(m.uid);
+            if (id) for (const f of files) found.push({ id, ...f });
+          }
+        }
+      } finally {
+        lock.release();
+      }
+    }
+  });
+  return found;
+}
+
+/** Downloads these attachments one by one (decoded), handing each file's stream to `save`. */
+export async function imapDownloadAttachments(cfg: ImapConfig, refs: AttachmentRef[],
+  save: (ref: AttachmentRef, content: Readable) => Promise<void>, onError: (ref: AttachmentRef, e: unknown) => void) {
+  const groups = new Map<string, AttachmentRef[]>();
+  for (const r of refs) {
+    const { path } = parseId(r.id);
+    groups.set(path, [...(groups.get(path) ?? []), r]);
+  }
+  await withClient(cfg, async (c) => {
+    for (const [path, list] of groups) {
+      const lock = await c.getMailboxLock(path, { readOnly: true });
+      try {
+        for (const r of list) {
+          try {
+            const { content } = await c.download(String(parseId(r.id).uid), r.part, { uid: true, chunkSize: 2 * 1024 * 1024 });
+            await save(r, content);
+          } catch (e) {
+            onError(r, e);
+          }
+        }
+      } finally {
+        lock.release();
+      }
+    }
+  });
+}

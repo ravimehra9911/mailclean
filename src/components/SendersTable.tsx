@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { mailboxLink, providerInfo } from "@/lib/catalog";
 import { api, fmtBytes, fmtDate, fmtNum, pct, type AccountShare, type Sender } from "./api";
 import { rangeParams, type DateRange } from "./DateFilter";
+import { AttachmentsDialog } from "./AttachmentsDialog";
 import { BulkUnsubscribe } from "./BulkUnsubscribe";
 import { CATEGORY_INFO, CategoryTag, type GmailCategory } from "./categories";
 
@@ -48,6 +49,7 @@ export function SendersTable(props: {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [unsubFor, setUnsubFor] = useState<string[] | null>(null);
+  const [attFor, setAttFor] = useState<Parameters<typeof AttachmentsDialog>[0] | null>(null);
 
   const load = useCallback(async () => {
     const p = new URLSearchParams({ sort: sort.by, dir: sort.dir, filter, limit: String(pageSize), offset: String(page * pageSize) });
@@ -172,6 +174,7 @@ export function SendersTable(props: {
         </div>
       )}
 
+      {attFor && <AttachmentsDialog {...attFor} />}
       {unsubFor && (
         <BulkUnsubscribe senders={unsubFor} onClose={() => setUnsubFor(null)}
           onDone={() => { setSelected(new Set()); onChanged(); }} />
@@ -181,6 +184,14 @@ export function SendersTable(props: {
         <div className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-3 rounded-xl bg-accent px-4 py-3 text-sm text-white shadow-lg">
           <span><b>{selected.size}</b> senders · {fmtNum(selCount)} emails · {fmtBytes(selBytes)}</span>
           <div className="ml-auto flex flex-wrap gap-2">
+            <button disabled={!!busy} title="Save the attachments from these senders' emails to your Downloads folder"
+              onClick={() => setAttFor({
+                senders: [...selected],
+                names: Object.fromEntries(selRows.map((r) => [r.email, r.name || r.email.split("@")[1] || r.email])),
+                scope: { accountId: accountId || undefined, from: range.from, to: range.to, category: category || undefined },
+                onClose: () => setAttFor(null),
+              })}
+              className="rounded-lg bg-white/15 px-3 py-1.5 hover:bg-white/25 disabled:opacity-50">Attachments</button>
             <button disabled={!!busy} onClick={() => setUnsubFor([...selected])}
               className="rounded-lg bg-white/15 px-3 py-1.5 hover:bg-white/25 disabled:opacity-50">Unsubscribe</button>
             <button disabled={!!busy} onClick={() => alwaysTrash([...selected])}

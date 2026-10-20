@@ -83,7 +83,7 @@ export default function PrivacyPolicy() {
           <li>the sender&apos;s unsubscribe link (the “List-Unsubscribe” header)</li>
         </ul>
         <p className="mt-3">
-          MailClean <b>does not save or show subject lines</b>, and it <b>never downloads message text or attachments</b>. For most
+          MailClean <b>does not save or show subject lines</b>, and it <b>never downloads message text</b>. It downloads attachments only when you ask it to save them (Senders → Attachments), straight to your Downloads folder. For most
           providers, MailClean asks only for the fields listed above. Yahoo and AOL only send the whole header block, so MailClean picks
           out the sender and unsubscribe link and discards the rest.
         </p>

@@ -67,18 +67,18 @@ const STATS = [
 
 const FEATURES = [
   { title: "See who fills your inbox", text: "Every sender ranked by number of emails, storage used and how much you never open." },
-  { title: "Clean up in one click", text: "Select senders and move thousands of emails to Trash or Archive at once. Nothing is permanently deleted." },
+  { title: "Clean up in one click", text: "Select senders and move thousands of emails to Trash or Archive at once — starred and important emails stay. Nothing is permanently deleted." },
   { title: "Bulk unsubscribe", text: "Pick dozens of newsletters and unsubscribe from all of them. You see exactly what will happen before you confirm." },
   { title: "Rules that clean for you", text: "Always trash a sender, or archive Promotions older than 30 days — applied after every sync.", isNew: true },
   { title: "Cleaning suggestions", text: "Senders you never open, mail older than a year, your Promotions tab — one click to review each.", isNew: true },
   { title: "Gmail tabs & dates", text: "Filter by Promotions, Updates, Social… or any date range, and clean only that." },
-  { title: "Keep what matters", text: "Starred and important emails stay, and you can keep the newest few from each sender.", isNew: true },
+  { title: "Save attachments in bulk", text: "Download every statement or invoice from the senders you pick — choose PDF, images or any format — to your Downloads folder.", isNew: true },
   { title: "Who has your email", text: "Every company that has your address, with security alerts, old accounts and one-click links to review app access.", isNew: true },
   { title: "Private by design", text: "Runs on your computer. Only sender, date, size and flags are saved — never subject lines or message content." },
 ];
 
 // Shown as a pill in the hero; update with each feature release.
-const WHATS_NEW = { version: "1.7", text: "Lock MailClean with a 6-digit PIN", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.7.1" };
+const WHATS_NEW = { version: "1.8", text: "Save attachments from any sender in bulk", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.8.0" };
 
 
 const SHOTS = [
@@ -97,7 +97,7 @@ const FAQ = [
   },
   {
     q: "Does MailClean read my emails?",
-    a: "No. MailClean asks your provider only for each email's sender, date, size, read/starred status, Gmail tab and unsubscribe link, and saves only those. Subject lines are never saved or shown — Yahoo and AOL send the whole header block, so MailClean picks out the sender and unsubscribe link and discards the rest. Message text and attachments are never downloaded, and nothing is sent to any MailClean server — there isn't one.",
+    a: "No. MailClean asks your provider only for each email's sender, date, size, read/starred status, Gmail tab and unsubscribe link, and saves only those. Subject lines are never saved or shown — Yahoo and AOL send the whole header block, so MailClean picks out the sender and unsubscribe link and discards the rest. Message text is never downloaded, attachments only when you ask to save them, and nothing is sent to any MailClean server — there isn't one.",
   },
   {
     q: "Can I clean only my Gmail Promotions tab?",
