@@ -197,6 +197,7 @@ export interface DownloadItem {
   install?: {
     steps: readonly string[]; req: string;
     why?: { text: string; images: readonly { src: string; alt: string }[] };
+    store?: { url: string; badge: string; name: string };
   };
 }
 
@@ -250,6 +251,12 @@ export function Downloads({ items }: { items: DownloadItem[] }) {
                 <span aria-hidden>ⓘ</span> How to install
               </button>
             )}
+            {d.install?.store && (
+              <a href={d.install.store.url} target="_blank" rel="noopener noreferrer" data-track="store" data-track-label={d.id}
+                className="relative z-[2] mt-3 block w-fit" title={`Get MailClean from the ${d.install.store.name} — no security warnings`}>
+                <img src={d.install.store.badge} alt={`Get it from ${d.install.store.name}`} width={120} height={33} className="h-8 w-auto" />
+              </a>
+            )}
           </div>
         );
       })}
@@ -280,7 +287,17 @@ function InstallHelp({ item, onClose, onDownload }: {
           </div>
           <button onClick={onClose} aria-label="Close" className="grid size-8 place-items-center rounded-lg text-subtle hover:bg-muted hover:text-ink">✕</button>
         </div>
-        <ol className="mt-5 list-decimal space-y-2.5 pl-5 text-sm leading-relaxed">
+        {item.install!.store && (
+          <div className="mt-5 rounded-xl border border-ok/30 bg-ok/5 p-4">
+            <div className="text-sm font-semibold">Recommended: get it from the {item.install!.store.name}</div>
+            <p className="mt-1 text-sm text-subtle">Signed by Microsoft — no security warnings, and updates install automatically.</p>
+            <a href={item.install!.store.url} target="_blank" rel="noopener noreferrer" data-track="store" data-track-label={item.id} className="mt-3 inline-block">
+              <img src={item.install!.store.badge} alt={`Get it from ${item.install!.store.name}`} width={161} height={44} className="h-10 w-auto" />
+            </a>
+          </div>
+        )}
+        {item.install!.store && <div className="mt-5 text-sm font-semibold">Or install the downloaded file</div>}
+        <ol className={`${item.install!.store ? "mt-2" : "mt-5"} list-decimal space-y-2.5 pl-5 text-sm leading-relaxed`}>
           {item.install!.steps.map((s) => <li key={s}>{s}</li>)}
         </ol>
         {item.install!.why && (

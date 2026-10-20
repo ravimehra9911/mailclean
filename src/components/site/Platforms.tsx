@@ -1,6 +1,9 @@
 // Installers and platform icons shared by the landing page and /download.
 
 const REPO = "https://github.com/ravimehra9911/mailclean";
+/** MailClean on the Microsoft Store; `mode=direct` opens the Store app on Windows. */
+export const MS_STORE_URL = "https://apps.microsoft.com/detail/9ngqqxkrlbp1?mode=direct";
+
 /** Always the newest release's file (installer names never change between versions). */
 export const dl = (file: string) => `${REPO}/releases/latest/download/${file}`;
 
@@ -17,6 +20,8 @@ export interface InstallInfo {
   req: string;
   /** Why the system shows a warning on first launch, with pictures of what to click. */
   why?: { text: string; images: readonly { src: string; alt: string }[] };
+  /** A store listing that avoids the warning (signed by the store, updates automatically). */
+  store?: { url: string; badge: string; name: string };
 }
 
 export const INSTALL: Record<"mac" | "windows" | "linux", InstallInfo> = {
@@ -42,6 +47,7 @@ export const INSTALL: Record<"mac" | "windows" | "linux", InstallInfo> = {
       "Start MailClean from the Start menu or the desktop shortcut.",
     ],
     req: "Windows 10 or 11, 64-bit",
+    store: { url: MS_STORE_URL, badge: "/install/microsoft-store-badge.svg", name: "Microsoft Store" },
     why: {
       text: "MailClean is free and made by one developer. A code-signing certificate — which lets Windows recognise the publisher — costs money every year, so the Windows build isn't signed yet. The app is open source, so anyone can check the code. Windows shows this once:",
       images: [

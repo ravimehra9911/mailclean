@@ -6,7 +6,7 @@ import { HeroVideo } from "@/components/site/HeroVideo";
 import { DownloadCountsProvider, DownloadTotal } from "@/components/site/DownloadCounts";
 import { PROVIDER_LOGOS } from "@/components/site/ProviderLogos";
 import { StructuredData } from "@/components/site/StructuredData";
-import { DOWNLOADS, dl, INSTALL } from "@/components/site/Platforms";
+import { DOWNLOADS, dl, INSTALL, MS_STORE_URL, WindowsIcon } from "@/components/site/Platforms";
 import { CompareTable } from "@/components/site/CompareTable";
 import { Gallery } from "@/components/site/Gallery";
 import { DESCRIPTION, DEVELOPER, GOOGLE_SITE_VERIFICATION, KEYWORDS, SITE_NAME, SITE_URL, TITLE } from "@/lib/site";
@@ -137,7 +137,7 @@ const FAQ = [
   },
   {
     q: "Why do macOS or Windows warn me when I open it?",
-    a: "The current builds are not yet code-signed. On macOS right-click the app and choose Open the first time; on Windows click More info → Run anyway.",
+    a: "MailClean is free, and code-signing certificates cost a yearly fee, so the downloads aren't signed yet. On Windows, the easiest way is to install MailClean from the Microsoft Store — it's signed by Microsoft, shows no warnings and updates itself. If you use the downloaded file, click More info → Run anyway. On macOS, open the app once, then go to System Settings → Privacy & Security and click Open Anyway.",
   },
   {
     q: "Does it work with Outlook or Hotmail?",
@@ -207,6 +207,11 @@ export default async function SitePage() {
             macOS · Windows · Linux{VERSION && ` · v${VERSION}`}
             <DownloadTotal />
           </p>
+          <a href={MS_STORE_URL} target="_blank" rel="noopener noreferrer" data-track="store" data-track-label="hero"
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-card px-4 py-1.5 text-sm font-medium hover:border-accent hover:text-accent">
+            <WindowsIcon className="size-4" /> Get it from Microsoft Store
+            <span className="text-xs font-normal text-subtle">· no security warnings</span>
+          </a>
           <Tilt className="mx-auto mt-12 max-w-5xl">
             <div className="float overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-accent/20">
               <HeroVideo src="/media/mailclean-demo.mp4" poster="/screenshots/overview-dark.png"
@@ -349,13 +354,19 @@ export default async function SitePage() {
               install: INSTALL[d.key],
             }))} />
           </Reveal>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-2xl border border-line bg-card px-5 py-4 text-sm">
+            <span><b>On Windows?</b> <span className="text-subtle">Get it from the Microsoft Store — no security warnings, automatic updates.</span></span>
+            <a href={MS_STORE_URL} target="_blank" rel="noopener noreferrer" data-track="store" data-track-label="landing-download">
+              <img src="/install/microsoft-store-badge.svg" alt="Get it from Microsoft Store" width={161} height={44} className="h-10 w-auto" />
+            </a>
+          </div>
           <div className="mt-4 rounded-2xl border border-line bg-card p-6 text-center">
             <div className="font-semibold">Just want to look first?</div>
             <p className="mt-1 text-sm text-subtle">The web demo runs in your browser with sample data — no download, no sign-in.</p>
             <a href="/demo" data-track="open_demo" className="mt-4 inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-medium hover:bg-muted">Open the web demo →</a>
           </div>
           <p className="mt-6 text-center text-xs text-subtle">
-            First launch: macOS — right-click MailClean → Open. Windows — More info → Run anyway. Linux — make the AppImage executable.
+            First launch steps are under “How to install” on each card. On Windows, the Microsoft Store version installs with no warnings.
             {" "}<a href={`${REPO}/releases`} className="underline">All releases</a>
           </p>
         </section>

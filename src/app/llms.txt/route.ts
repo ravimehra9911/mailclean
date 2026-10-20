@@ -21,12 +21,13 @@ MailClean is a free, open-source (MIT) desktop app${VERSION ? ` (current version
 - Safety: nothing is permanently deleted. "Move to Trash" uses the provider's Trash folder (restorable for about 30 days); "Archive" removes mail from the inbox.
 - Unsubscribe: uses one-click List-Unsubscribe (RFC 8058) when the sender supports it, otherwise opens the sender's unsubscribe page. Bulk unsubscribe shows a review of what will happen for each selected sender before it runs.
 - Other features: filter by year or custom date range, filter by Gmail tab (Primary, Promotions, Social, Updates, Forums, Purchases), keep starred and important emails (and optionally the newest N per sender) when cleaning, automatic clean-up rules (always trash a sender, archive a Gmail tab older than N days) applied after every sync, cleaning suggestions, an optional 6-digit PIN app lock (forgotten PIN: reset the app and start fresh), an "Accounts and apps" page listing every company that has emailed the user (with security-alert and long-quiet tags) plus links to Google, Yahoo, Apple and Microsoft pages for reviewing third-party app access, sort by any column, open a sender's emails in webmail (Gmail search) or copy the address, several accounts in one dashboard with per-account labels, light and dark mode, Sync button to rescan, guided in-app tour, update notifications.
-- Known limits: Yahoo and AOL only expose the newest 10,000 emails per folder to apps; MailClean rescans after each clean-up so older mail comes into view. Builds are not code-signed yet, so macOS and Windows show a warning on first launch.
+- Known limits: Yahoo and AOL only expose the newest 10,000 emails per folder to apps; MailClean rescans after each clean-up so older mail comes into view. Downloaded builds are not code-signed yet, so macOS and Windows show a warning on first launch; the Microsoft Store version is signed by Microsoft and shows no warning.
 
 ## Download
 
 ${downloads}
 - [Download page with install steps](${SITE_URL}/download)
+- [Microsoft Store (Windows, signed, auto-updates)](https://apps.microsoft.com/detail/9ngqqxkrlbp1)
 - [All releases and release notes](${REPO_URL}/releases)
 
 ## How to get started

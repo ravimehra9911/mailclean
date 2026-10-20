@@ -3,7 +3,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Analytics, AnalyticsSettings } from "@/components/site/Analytics";
 import { DownloadCountsProvider, DownloadTotal } from "@/components/site/DownloadCounts";
 import { Downloads } from "@/components/site/Effects";
-import { DOWNLOADS, dl, INSTALL } from "@/components/site/Platforms";
+import { DOWNLOADS, dl, INSTALL, MS_STORE_URL } from "@/components/site/Platforms";
 import { getDownloadCounts, type InstallerKey } from "@/lib/downloads";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
@@ -62,6 +62,12 @@ export default async function DownloadPage() {
               install: INSTALL[d.key],
             }))} />
           </div>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-2xl border border-line bg-card px-5 py-4 text-sm">
+            <span><b>On Windows?</b> <span className="text-subtle">Get MailClean from the Microsoft Store — no security warnings, automatic updates.</span></span>
+            <a href={MS_STORE_URL} target="_blank" rel="noopener noreferrer" data-track="store" data-track-label="download-page">
+              <img src="/install/microsoft-store-badge.svg" alt="Get it from Microsoft Store" width={161} height={44} className="h-10 w-auto" />
+            </a>
+          </div>
           <p className="mt-4 text-center text-sm text-subtle">
             Not sure which Mac you have? Apple menu → About This Mac: “Apple M…” means Apple Silicon, “Intel” means Intel.
           </p>
@@ -79,7 +85,7 @@ export default async function DownloadPage() {
               <h2 className="font-semibold">Updates</h2>
               <p className="mt-2 text-sm leading-relaxed text-subtle">
                 MailClean tells you when a new version is out (About → Updates). Download it here and install it over the old one —
-                your accounts and settings are kept.
+                your accounts and settings are kept. The Microsoft Store version updates itself.
               </p>
             </div>
             <div className="rounded-2xl border border-line bg-card p-6">
