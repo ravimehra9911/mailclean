@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [sendersQuery, setSendersQuery] = useState("");
   const openTab = useCallback((t: Tab) => { setSendersFilter("all"); setSendersQuery(""); setTab(t); }, []);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
-  const [configured, setConfigured] = useState({ google: false, microsoft: false });
+  const [configured, setConfigured] = useState({ google: false });
   const [about, setAbout] = useState({ version: "", dataDir: "", demo: false });
   const updates = useUpdates();
 
@@ -326,7 +326,7 @@ function SyncBanner({ accounts }: { accounts: Account[] }) {
 }
 
 type ConnectProps = {
-  configured: { google: boolean; microsoft: boolean };
+  configured: { google: boolean };
   onConnected: () => void;
   toast: (m: string, k?: "ok" | "err") => void;
 };
@@ -351,7 +351,7 @@ function Welcome(props: ConnectProps) {
 }
 
 function Accounts({ accounts, configured, reload, toast }: {
-  accounts: Account[]; configured: { google: boolean; microsoft: boolean }; reload: () => void; toast: (m: string, k?: "ok" | "err") => void;
+  accounts: Account[]; configured: { google: boolean }; reload: () => void; toast: (m: string, k?: "ok" | "err") => void;
 }) {
   const [preset, setPreset] = useState<{ provider: ImapProviderId; email: string } | null>(null);
   async function disconnect(a: Account) {

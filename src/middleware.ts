@@ -7,7 +7,7 @@ import { lockStatus, UNLOCK_COOKIE } from "@/lib/applock";
 
 // Sign-in runs in the system browser, which cannot send the token. These routes only redirect to the
 // provider or finish a sign-in protected by the OAuth state cookie, so they stay open.
-const OPEN = /^\/api\/connect\/(google|microsoft)(\/callback)?$/;
+const OPEN = /^\/api\/connect\/google(\/callback)?$/;
 
 function safeEqual(a: string, b: string) {
   if (a.length !== b.length) return false;

@@ -9,12 +9,9 @@ type Toast = (m: string, k?: "ok" | "err") => void;
 // Order shown in the picker.
 const ORDER: ImapProviderId[] = ["gmail", "yahoo", "icloud", "aol", "zoho", "imap"];
 
-// Outlook support is built (src/lib/providers/microsoft.ts) but needs a Microsoft app registration; hidden until then.
-const SHOW_OUTLOOK = false;
-
 /** Provider picker plus the app-password form for the chosen provider. */
 export function AddAccount(props: {
-  configured: { google: boolean; microsoft: boolean };
+  configured: { google: boolean };
   onConnected: () => void;
   toast: Toast;
   /** Pre-select a provider and email, e.g. to replace a revoked app password. */
@@ -38,12 +35,9 @@ export function AddAccount(props: {
         })}
       </div>
 
-      {(props.configured.google || (SHOW_OUTLOOK && props.configured.microsoft)) && (
+      {props.configured.google && (
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-subtle">
-          {props.configured.google && <a href="/api/connect/google" className="text-accent hover:underline">Or connect Gmail with Google sign-in →</a>}
-          {SHOW_OUTLOOK && props.configured.microsoft && (
-            <a href="/api/connect/microsoft" className="text-accent hover:underline">Connect Outlook / Hotmail →</a>
-          )}
+          <a href="/api/connect/google" className="text-accent hover:underline">Or connect Gmail with Google sign-in →</a>
         </div>
       )}
 

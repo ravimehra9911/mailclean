@@ -12,7 +12,7 @@ export const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? "/tmp/mail
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS accounts (
   id            TEXT PRIMARY KEY,
-  provider      TEXT NOT NULL,            -- OAuth: 'google' | 'microsoft'; IMAP: see src/lib/catalog.ts
+  provider      TEXT NOT NULL,            -- OAuth: 'google'; IMAP: see src/lib/catalog.ts
   email         TEXT NOT NULL,
   access_token  TEXT,                     -- encrypted
   refresh_token TEXT,                     -- encrypted (IMAP accounts: the app password)
@@ -100,7 +100,7 @@ export function db(): DatabaseSyncType {
   return g.__mailcleanDb;
 }
 
-export type OAuthProvider = "google" | "microsoft";
+export type OAuthProvider = "google";
 export type Provider = OAuthProvider | ImapProviderId;
 
 export interface AccountRow {

@@ -1,5 +1,5 @@
 // Prepares .next/standalone for packaging and writes the keys the desktop app needs.
-// Run after `next build` (see `npm run desktop:build`).
+// Run after `next build` (see the `desktop:*` npm scripts).
 import fs from "node:fs";
 import path from "node:path";
 
@@ -28,7 +28,7 @@ for (const name of fs.readdirSync(standalone)) {
 // them: anything inside an installer can be extracted, and app-password accounts don't need them.
 // Keys are read from .env.local / .env and written to build/config.json (gitignored),
 // which electron-builder copies into the app as resources/config.json.
-const keys = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET", "MICROSOFT_TENANT", "SYNC_LIMIT"];
+const keys = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SYNC_LIMIT"];
 const config = {};
 const bundleOAuth = process.env.MAILCLEAN_BUNDLE_OAUTH === "1";
 for (const file of bundleOAuth ? [".env", ".env.local"] : []) {
