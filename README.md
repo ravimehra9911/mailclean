@@ -4,7 +4,8 @@
 connects Gmail, Yahoo, iCloud, AOL, Zoho and any IMAP mailbox, shows which senders fill every inbox,
 unsubscribes from newsletters and trashes or archives thousands of emails per sender in one click.
 
-[Download](https://github.com/ravimehra9911/mailclean/releases/latest) ·
+[Download](https://www.mailclean.app/download) ·
+[Microsoft Store](https://apps.microsoft.com/detail/9ngqqxkrlbp1) ·
 [Website](https://www.mailclean.app) ·
 [Live demo](https://www.mailclean.app/demo) ·
 [MIT license](LICENSE) ·
@@ -16,8 +17,21 @@ built by [@ravimehra9911](https://github.com/ravimehra9911)
 |---|---|
 | ![Senders](public/screenshots/senders-light.png) | ![Add account](public/screenshots/add-account-light.png) |
 
-Features: sender report by count, size and unread rate · bulk Trash/Archive · one-click unsubscribe ·
-filter by year or custom dates · sort by any column · light and dark mode · several accounts at once.
+Features:
+
+- **Sender report** by count, size and unread rate, sortable by any column, filtered by year or custom dates.
+- **Bulk Trash/Archive** per sender, keeping starred and important emails and optionally the **newest N per sender**.
+- **One-click unsubscribe** (RFC 8058) and a Newsletters page for unsubscribing in bulk.
+- **Gmail tabs**: filter and clean by Primary, Promotions, Social, Updates, Forums and Purchases.
+- **Cleaning suggestions** on the Overview page (old mail, never-opened senders, newsletters).
+- **Rules**: automatic clean-ups after every sync, e.g. always trash a sender or archive a Gmail tab older than N days.
+- **Apps & access** ("who has your email"): every company that has emailed you, with security-alert and
+  long-quiet tags, plus links to each provider's page for reviewing third-party app access.
+- **App lock**: an optional 6-digit PIN on the Security page, with growing waits after repeated wrong PINs.
+- Several accounts in one dashboard, light and dark mode, guided tour and update notifications.
+
+Get it from the [download page](https://www.mailclean.app/download) (macOS, Windows, Linux) or the
+[Microsoft Store](https://apps.microsoft.com/detail/9ngqqxkrlbp1) (signed, updates itself).
 
 **Privacy:** everything runs and stays on the user's device; there is no MailClean server or account.
 Only metadata is requested and stored (sender, date, size, read/inbox/starred status, Gmail tab, unsubscribe
@@ -47,9 +61,8 @@ Provider notes:
   counted twice. Archive removes the Inbox label; Trash moves to `[Gmail]/Trash`.
 - **Yahoo and AOL** only let apps see the newest **10,000 emails per folder**. The app says so and rescans
   after every clean-up, which brings older mail into view.
-- **Outlook / Hotmail** no longer allows app passwords for IMAP. Support via Microsoft Graph is built
-  (`src/lib/providers/microsoft.ts`) but hidden until a Microsoft app registration is set up
-  (`SHOW_OUTLOOK` in `src/components/AddAccount.tsx`).
+- **Outlook / Hotmail** no longer allows app passwords for IMAP, so it needs Microsoft sign-in instead.
+  Outlook support is planned; that work is not on `main` yet.
 
 ## Develop
 
@@ -59,6 +72,15 @@ Requires Node 22.13+ (uses the built-in `node:sqlite`).
 npm install
 npm run dev            # http://localhost:3000 — data in ./.data
 npm run desktop:dev    # Electron window around the dev server (start `npm run dev` first)
+```
+
+Checks (CI runs all four on every push and pull request to `main`, see `.github/workflows/ci.yml`):
+
+```bash
+npm run typecheck      # tsc --noEmit
+npm run lint           # ESLint (eslint.config.mjs: next/core-web-vitals + next/typescript)
+npm test               # Vitest unit tests (src/**/*.test.ts)
+npm run build          # next build
 ```
 
 ## Build the desktop app
@@ -72,7 +94,7 @@ npm run desktop:linux  # dist-desktop/MailClean-linux-x86_64.AppImage
 File names carry no version, so `releases/latest/download/<file>` links on the website always point at
 the newest GitHub release. Upload the four files to a release named after `electron/package.json`'s version.
 
-The version comes from `electron/package.json`. App data lives in `~/Library/Application Support/MailClean`
+App data lives in `~/Library/Application Support/MailClean`
 (macOS) or `%APPDATA%\MailClean` (Windows); server logs are in its `logs/` folder.
 
 ### Before publishing
@@ -83,6 +105,18 @@ The version comes from `electron/package.json`. App data lives in `~/Library/App
   - Windows: an OV/EV code-signing certificate (`WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD`) or Azure Trusted Signing.
 - **App ID and name** are in the `build` section of `package.json` (`appId: app.mailclean.desktop`).
 - Bump `version` in `electron/package.json` for each release.
+
+### Versioning
+
+`electron/package.json` is the source of truth for the app version (shown on the About page, used by electron-builder for
+the installers and compared against GitHub releases by the update check). The `version` in the root
+`package.json` is unused and stays at `0.1.0`.
+
+### Microsoft Store
+
+The Store package (MSIX) is built by the manual **Microsoft Store package** workflow
+(`.github/workflows/msix.yml`) on a Windows runner; upload the artifact in Partner Center. The listing is
+<https://apps.microsoft.com/detail/9ngqqxkrlbp1>.
 
 ## Website and web demo
 
@@ -133,12 +167,21 @@ sign-in to the public requires Google's OAuth verification and a CASA security a
 |---|---|
 | Provider catalog (IMAP servers, app-password steps) | `src/lib/catalog.ts` |
 | IMAP sync, trash and archive | `src/lib/providers/imap.ts` |
-| Gmail API / Microsoft Graph (optional OAuth) | `src/lib/providers/google.ts`, `microsoft.ts` |
+| Gmail API (optional Google sign-in) | `src/lib/providers/google.ts` |
 | Accounts, background sync, token refresh | `src/lib/accounts.ts` |
 | Clean-up and unsubscribe (RFC 8058 one-click) | `src/lib/actions.ts` |
+| Clean-up rules (run after every sync) | `src/lib/rules.ts` |
+| "Who has your email" (senders grouped by company) | `src/lib/companies.ts` |
+| App lock (6-digit PIN) | `src/lib/applock.ts` |
+| From / List-Unsubscribe header parsing | `src/lib/headers.ts` |
 | Sender and overview queries | `src/lib/stats.ts` |
 | SQLite schema and migrations | `src/lib/db.ts` |
 | Request lock for the desktop app | `src/middleware.ts` |
 | Dashboard UI | `src/components/` |
 | Electron main process | `electron/main.cjs` |
+| Website comparison chart facts | `src/lib/competitors.ts` |
+| Logo and icon export (`npm run brand`) | `scripts/brand.cjs` |
 | Packaging scripts | `scripts/` |
+| CI (typecheck, lint, test, build) | `.github/workflows/ci.yml` |
+| Microsoft Store package build | `.github/workflows/msix.yml` |
+| Unit tests | `src/lib/*.test.ts` |
