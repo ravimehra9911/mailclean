@@ -15,6 +15,8 @@ const TARGETS = {
   "apple-icon-180.png": ["src/app/apple-icon.png"],
   "favicon.ico": ["src/app/favicon.ico"],
   "store-app-tile-icon-300x300.png": ["marketing/store-icons/app-tile-icon-300x300.png"],
+  "store-tile-150x150.png": ["marketing/store-icons/tile-150x150.png"],
+  "store-tile-71x71.png": ["marketing/store-icons/tile-71x71.png"],
   "store-box-art-1080x1080.png": ["marketing/store-icons/box-art-1080x1080.png"],
   "store-box-art-2160x2160.png": ["marketing/store-icons/box-art-2160x2160.png"],
   "store-poster-art-720x1080.png": ["marketing/store-icons/poster-art-720x1080.png"],
@@ -67,6 +69,8 @@ app.whenReady().then(async () => {
     out["icon-mark-512.png"] = await bare(512);
     // Microsoft Store: tile icon, square box art and 2:3 poster art (icon only, white background).
     out["store-app-tile-icon-300x300.png"] = await tile(300, false);
+    out["store-tile-150x150.png"] = await tile(150, false);
+    out["store-tile-71x71.png"] = await tile(71, false);
     const art = async (w, h, share) => { const [c, g] = canvas(w, h); g.fillStyle = "#ffffff"; g.fillRect(0, 0, w, h); drawMark(g, w / 2, h / 2, Math.min(w, h) * share); return png(c); };
     out["store-box-art-1080x1080.png"] = await art(1080, 1080, 0.7);
     out["store-box-art-2160x2160.png"] = await art(2160, 2160, 0.62);
