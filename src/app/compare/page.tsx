@@ -29,6 +29,7 @@ export default function ComparePage() {
           <div className="ml-auto flex items-center gap-4 text-sm text-subtle">
             <a href="/#download" className="hidden hover:text-ink sm:inline">Download</a>
             <a href="/demo" className="hidden hover:text-ink sm:inline">Live demo</a>
+            <a href="/privacy" className="hidden hover:text-ink sm:inline">Privacy</a>
             <ThemeToggle />
           </div>
         </nav>

@@ -404,6 +404,7 @@ export default async function SitePage() {
           </span>
           <span>MIT License</span>
           <a href="/compare" className="hover:text-ink">Compare</a>
+          <a href="/privacy" className="hover:text-ink">Privacy policy</a>
           <AnalyticsSettings />
           <a href={GITHUB_USER} className="ml-auto flex items-center gap-2 hover:text-ink">
             <GitHubIcon className="size-4" /> Built by <b className="font-medium text-ink">@ravimehra9911</b>
