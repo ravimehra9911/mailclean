@@ -6,8 +6,8 @@ import { isConfigured, providers } from "@/lib/accounts";
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ provider: string }> }) {
   const { provider } = await params;
   if (isDemo()) return NextResponse.json({ error: DEMO_MESSAGE }, { status: 403 });
-  if (provider !== "google" && provider !== "microsoft") return NextResponse.json({ error: "Unknown provider" }, { status: 404 });
-  if (!isConfigured(provider)) {
+  if (provider !== "google") return NextResponse.json({ error: "Unknown provider" }, { status: 404 });
+  if (!isConfigured()) {
     return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(`${provider} is not configured — see README`)}`, _req.url));
   }
   // CSRF protection: the state must come back unchanged and match this cookie.

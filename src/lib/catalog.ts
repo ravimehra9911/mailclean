@@ -123,7 +123,6 @@ export const isImapProvider = (p: string): p is ImapProviderId => Object.hasOwn(
 export function providerInfo(id: string): { label: string; icon: string; color: string } {
   if (isImapProvider(id)) return IMAP_PROVIDERS[id];
   if (id === "google") return { label: "Gmail", icon: "G", color: "#ea4335" };
-  if (id === "microsoft") return { label: "Outlook", icon: "O", color: "#0078d4" };
   return { label: id, icon: "@", color: "#6b7280" };
 }
 
@@ -143,8 +142,6 @@ export function mailboxLink(provider: string, account: string, sender: string): 
       return { url: "https://mail.yahoo.com/", search: false };
     case "aol":
       return { url: "https://mail.aol.com/", search: false };
-    case "microsoft":
-      return { url: `https://outlook.live.com/mail/0/search?q=${q(`from:${sender}`)}`, search: true };
     case "icloud":
       return { url: "https://www.icloud.com/mail/", search: false };
     case "zoho":
@@ -174,9 +171,6 @@ export function accessSettings(provider: string, account: string): { url: string
     case "icloud":
       return { url: "https://account.apple.com/account/manage", label: "Open Apple Account",
         text: "Apps using “Sign in with Apple” and your app-specific passwords" };
-    case "microsoft":
-      return { url: "https://account.live.com/consent/Manage", label: "Open Microsoft settings",
-        text: "Apps and services you've given access to your Microsoft account" };
     case "zoho":
       return { url: "https://accounts.zoho.com/home", label: "Open Zoho Accounts",
         text: "Connected apps, sessions and app passwords for your Zoho account" };

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
     res.cookies.delete("oauth_return");
     return res;
   };
-  if (provider !== "google" && provider !== "microsoft") return home("error=Unknown+provider");
+  if (provider !== "google") return home("error=Unknown+provider");
 
   const url = req.nextUrl;
   const err = url.searchParams.get("error_description") || url.searchParams.get("error");

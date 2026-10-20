@@ -2,13 +2,12 @@ import crypto from "node:crypto";
 import { db, getAccount, insertMessages, updateAccount, type AccountRow, type OAuthProvider } from "./db";
 import { decrypt, encrypt } from "./crypto";
 import { google } from "./providers/google";
-import { microsoft } from "./providers/microsoft";
 import { IMAP_PROVIDERS, isImapProvider, type ImapProviderId } from "./catalog";
 import { isDemo } from "./demo";
 import { imapArchive, imapSync, imapTrash, type ImapConfig } from "./providers/imap";
 import type { MailProvider } from "./providers/types";
 
-export const providers: Record<OAuthProvider, MailProvider> = { google, microsoft };
+export const providers: Record<OAuthProvider, MailProvider> = { google };
 
 const isImap = isImapProvider;
 
@@ -29,14 +28,12 @@ export function imapConfig(a: AccountRow): ImapConfig {
   };
 }
 
-export function isConfigured(p: "google" | "microsoft") {
-  return p === "google"
-    ? !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
-    : !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
+export function isConfigured() {
+  return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
 export function saveConnectedAccount(
-  provider: "google" | "microsoft",
+  provider: OAuthProvider,
   t: { email: string; accessToken: string; refreshToken?: string; expiresIn: number },
 ): string {
   const existing = db().prepare("SELECT id, refresh_token FROM accounts WHERE provider = ? AND email = ?")
