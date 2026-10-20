@@ -8,12 +8,12 @@ const ROOT = path.join(__dirname, "..");
 const src = path.join(ROOT, "build", "logo-source.webp");
 // Where each generated file goes.
 const TARGETS = {
-  "icon-1024.png": ["build/icon.png", "public/brand/mailclean-icon.png"],
-  "mailclean-logo.png": ["public/brand/mailclean-logo.png"],
-  "mailclean-mark.png": ["public/brand/mailclean-mark.png"],
-  "icon-mark-512.png": ["src/app/icon.png"],
-  "apple-icon-180.png": ["src/app/apple-icon.png"],
-  "favicon.ico": ["src/app/favicon.ico"],
+  "icon-1024.png": ["build/icon.png", "public/brand/mailclean-icon.png", "marketing/icons/app-icon-1024.png"],
+  "mailclean-logo.png": ["public/brand/mailclean-logo.png", "marketing/icons/logo-full.png"],
+  "mailclean-mark.png": ["public/brand/mailclean-mark.png", "marketing/icons/logo-mark.png"],
+  "icon-mark-512.png": ["src/app/icon.png", "marketing/icons/mark-512.png"],
+  "apple-icon-180.png": ["src/app/apple-icon.png", "marketing/icons/apple-icon-180.png"],
+  "favicon.ico": ["src/app/favicon.ico", "marketing/icons/favicon.ico"],
   "store-app-tile-icon-300x300.png": ["marketing/store-icons/app-tile-icon-300x300.png"],
   "store-tile-150x150.png": ["marketing/store-icons/tile-150x150.png"],
   "store-tile-71x71.png": ["marketing/store-icons/tile-71x71.png"],
