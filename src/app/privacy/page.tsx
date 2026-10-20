@@ -9,6 +9,7 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
 const TITLE = "Privacy Policy — MailClean";
 const DESCRIPTION = "How MailClean handles your data: the app runs on your computer, reads only email metadata, and never sends your email data to us or anyone else.";
 const ISSUES = "https://github.com/ravimehra9911/mailclean/issues";
+const SUPPORT_EMAIL = "support@mailclean.app";
 const EFFECTIVE = "20 October 2026";
 
 export const metadata: Metadata = {
@@ -49,7 +50,7 @@ export default function PrivacyPolicy() {
         <p className="mt-2 text-sm text-subtle">Effective date: {EFFECTIVE}</p>
 
         <p className="mt-6">
-          MailClean is a free, open-source app for cleaning up email inboxes, made by Ravi Mehra. This policy explains what the
+          MailClean is a free, open-source app for cleaning up email inboxes, made by Ravi Kumar. This policy explains what the
           MailClean app and the website <a href="/" className="text-accent hover:underline">www.mailclean.app</a> do with your information.
         </p>
         <div className="mt-6 rounded-xl border border-accent/30 bg-accent/5 px-5 py-4">
@@ -164,7 +165,8 @@ export default function PrivacyPolicy() {
 
         <H2 id="contact">6. Contact</H2>
         <p className="mt-3">
-          Questions about privacy: open an issue at{" "}
+          Questions about privacy: email <a href={`mailto:${SUPPORT_EMAIL}`} className="text-accent hover:underline">{SUPPORT_EMAIL}</a>
+          {" "}or open an issue at{" "}
           <a href={ISSUES} className="text-accent hover:underline">github.com/ravimehra9911/mailclean/issues</a>.
         </p>
       </main>
