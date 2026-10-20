@@ -61,6 +61,8 @@ function startServer() {
       HOSTNAME: "127.0.0.1",
       APP_URL,
       MAILCLEAN_TOKEN: TOKEN,
+      // Installed from the Microsoft Store (MSIX): the Store delivers updates, so skip the GitHub check.
+      MAILCLEAN_STORE: process.windowsStore ? "1" : "",
       DATA_DIR: path.join(app.getPath("userData"), "data"),
       NEXT_TELEMETRY_DISABLED: "1",
     },

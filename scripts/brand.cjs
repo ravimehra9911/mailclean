@@ -19,6 +19,13 @@ const TARGETS = {
   "store-box-art-2160x2160.png": ["marketing/store-icons/box-art-2160x2160.png"],
   "store-poster-art-720x1080.png": ["marketing/store-icons/poster-art-720x1080.png"],
   "store-poster-art-1440x2160.png": ["marketing/store-icons/poster-art-1440x2160.png"],
+  // electron-builder's MSIX/AppX target reads these from build/appx/.
+  "appx-StoreLogo.png": ["build/appx/StoreLogo.png"],
+  "appx-Square44x44Logo.png": ["build/appx/Square44x44Logo.png"],
+  "appx-SmallTile.png": ["build/appx/SmallTile.png"],
+  "appx-Square150x150Logo.png": ["build/appx/Square150x150Logo.png"],
+  "appx-LargeTile.png": ["build/appx/LargeTile.png"],
+  "appx-Wide310x150Logo.png": ["build/appx/Wide310x150Logo.png"],
 };
 app.disableHardwareAcceleration();
 app.whenReady().then(async () => {
@@ -65,6 +72,14 @@ app.whenReady().then(async () => {
     out["store-box-art-2160x2160.png"] = await art(2160, 2160, 0.62);
     out["store-poster-art-720x1080.png"] = await art(720, 1080, 0.8);
     out["store-poster-art-1440x2160.png"] = await art(1440, 2160, 0.74);
+    // MSIX tile images (transparent; Windows draws them on its own tile/taskbar backgrounds).
+    const fit = async (w, h, share) => { const [c, g] = canvas(w, h); drawMark(g, w / 2, h / 2, Math.min(w, h * MARK.w / MARK.h) * share); return png(c); };
+    out["appx-StoreLogo.png"] = await fit(50, 50, 0.96);
+    out["appx-Square44x44Logo.png"] = await fit(44, 44, 0.96);
+    out["appx-SmallTile.png"] = await fit(71, 71, 0.8);
+    out["appx-Square150x150Logo.png"] = await fit(150, 150, 0.66);
+    out["appx-LargeTile.png"] = await fit(310, 310, 0.62);
+    out["appx-Wide310x150Logo.png"] = await fit(310, 150, 0.5);
     return out;
   })()`);
   const bufs = Object.fromEntries(Object.entries(files).map(([k, v]) => [k, Buffer.from(v, "base64")]));

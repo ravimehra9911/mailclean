@@ -1,0 +1,45 @@
+# Builds the Microsoft Store package (MSIX/AppX). AppX can only be built on Windows, so this runs on
+# GitHub's Windows runner. Start it from the Actions tab ("Run workflow"); download the package from the
+# run's artifacts and upload it in Partner Center. The Store signs it, so no certificate is needed.
+name: Microsoft Store package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  msix:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check the Store identity is set
+        shell: bash
+        run: |
+          if grep -q "SET-FROM-PARTNER-CENTER" package.json; then
+            echo "::error::Set build.appx.identityName, publisher and publisherDisplayName in package.json (Partner Center → Product identity)."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: Build the app
+        run: npm run desktop:prepare
+
+      - name: Package for the Microsoft Store
+        run: npx electron-builder --win appx --x64 --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mailclean-store-package
+          path: |
+            dist-desktop/*.appx
+            dist-desktop/*.msix
+          if-no-files-found: error

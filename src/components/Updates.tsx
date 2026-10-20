@@ -11,6 +11,8 @@ export interface UpdateInfo {
   releaseUrl?: string;
   error?: string;
   demo?: boolean;
+  /** Installed from the Microsoft Store, which installs updates itself. */
+  store?: boolean;
 }
 
 const SKIP_KEY = "mailclean-skip-update";
@@ -86,6 +88,14 @@ export function UpdateSection({ info, checking, check, version }: {
   info: UpdateInfo | null; checking: boolean; check: (force?: boolean) => void; version: string;
 }) {
   if (info?.demo) return null;
+  if (info?.store) {
+    return (
+      <section className="rounded-xl border border-line bg-card p-5">
+        <h2 className="mb-2 font-semibold">Updates</h2>
+        <p className="text-subtle">You have MailClean <b className="text-ink">{version}</b>. The Microsoft Store installs new versions automatically.</p>
+      </section>
+    );
+  }
   return (
     <section className="rounded-xl border border-line bg-card p-5">
       <h2 className="mb-2 font-semibold">Updates</h2>

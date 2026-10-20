@@ -13,6 +13,8 @@ export interface UpdateInfo {
   notes: string | null;
   checkedAt: number;
   error?: string;
+  /** Installed from the Microsoft Store, which installs updates itself. */
+  store?: boolean;
 }
 
 /** Installer file name for this platform; matches artifactName in package.json's build config. */
@@ -39,6 +41,9 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
   if (!force && g.__mailcleanUpdate && Date.now() - g.__mailcleanUpdate.checkedAt < CACHE_MS) return g.__mailcleanUpdate;
 
   const releaseUrl = `https://github.com/${REPO}/releases/latest`;
+  if (process.env.MAILCLEAN_STORE === "1") {
+    return { current, latest: null, available: false, downloadUrl: null, releaseUrl, notes: null, checkedAt: Date.now(), store: true };
+  }
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { Accept: "application/vnd.github+json", "User-Agent": `MailClean/${current}` },

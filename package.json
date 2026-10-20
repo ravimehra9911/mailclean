@@ -88,6 +88,19 @@
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "MailClean"
     },
+    "appx": {
+      "applicationId": "MailClean",
+      "displayName": "mailclean.app",
+      "identityName": "ravimehra9911.mailclean.app",
+      "publisher": "CN=73CAAB27-B9D7-4058-9EDF-022A917D59FF",
+      "publisherDisplayName": "ravimehra9911",
+      "backgroundColor": "transparent",
+      "languages": [
+        "en-US"
+      ],
+      "showNameOnTiles": false,
+      "artifactName": "MailClean-${version}-store-${arch}.${ext}"
+    },
     "afterPack": "scripts/after-pack.cjs",
     "npmRebuild": false,
     "linux": {

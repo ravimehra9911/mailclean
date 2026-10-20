@@ -21,6 +21,7 @@
 /build/*
 !/build/icon.png
 !/build/logo-source.webp
+!/build/appx/
 
 # misc
 .DS_Store
