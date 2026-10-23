@@ -1,17 +1,19 @@
 "use client";
 
 import {
-  IconAbout, IconAccounts, IconApps, IconBack, IconLock, IconHelp, IconNewsletter, IconOverview, IconPrivacy, IconRules, IconSenders,
+  IconAbout, IconAccounts, IconApps, IconBack, IconDownload, IconLock, IconHelp, IconNewsletter, IconOverview, IconPrivacy, IconRules, IconSenders,
 } from "./Icons";
 import { ThemeToggle } from "./ThemeToggle";
 
-export type Tab = "overview" | "senders" | "newsletters" | "rules" | "apps" | "accounts" | "help" | "privacy" | "security" | "about";
+export type Tab = "overview" | "senders" | "newsletters" | "rules" | "apps" | "downloads" | "accounts" | "help" | "privacy" | "security" | "about";
 
 type Item = { tab: Tab; label: string; Icon: (p: { className?: string }) => React.ReactNode; badge?: number; tour?: string };
 
 /** App navigation: a sidebar on desktop, a scrollable bar on small screens. */
-export function Sidebar({ tab, setTab, accountCount, version, demo, onLock }: {
+export function Sidebar({ tab, setTab, accountCount, downloading = 0, version, demo, onLock }: {
   tab: Tab; setTab: (t: Tab) => void; accountCount: number; version: string; demo: boolean;
+  /** Attachment downloads running now, shown as a badge. */
+  downloading?: number;
   /** Shown when an app-lock PIN is set. */
   onLock?: () => void;
 }) {
@@ -21,6 +23,7 @@ export function Sidebar({ tab, setTab, accountCount, version, demo, onLock }: {
     { tab: "newsletters", label: "Newsletters", Icon: IconNewsletter },
     { tab: "rules", label: "Rules", Icon: IconRules },
     { tab: "apps", label: "Apps & access", Icon: IconApps },
+    { tab: "downloads", label: "Downloads", Icon: IconDownload, badge: downloading },
     { tab: "accounts", label: "Accounts", Icon: IconAccounts, badge: accountCount },
   ];
   const support: Item[] = [

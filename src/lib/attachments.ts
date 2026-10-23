@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { getAccount, db } from "./db";
 import { imapConfig } from "./accounts";
@@ -83,7 +84,13 @@ export async function scanAttachments(senders: string[], scope: Scope) {
   };
 }
 
-export interface Job { id: string; total: number; saved: number; failed: number; done: boolean; folder: string; errors: string[] }
+export interface Job {
+  id: string; title: string; formats: string; folder: string;
+  total: number; saved: number; existing: number; failed: number; bytes: number;
+  status: "running" | "done" | "cancelled" | "interrupted"; errors: string[]; startedAt: number; finishedAt: number | null;
+  /** Cancel was requested; the job stays "running" until the file in progress is finished. */
+  cancelling: boolean;
+}
 
 export const downloadsRoot = () => path.join(os.homedir(), "Downloads", "MailClean");
 
@@ -100,53 +107,167 @@ function unique(file: string) {
   }
 }
 
-/** Starts saving the chosen formats from a scan; returns a job to poll for progress. */
+/** Where a file is saved: Downloads/MailClean/<sender>/<date> <sender> - <file name>. */
+function targetOf(f: Found) {
+  const { name, ext } = path.parse(safe(f.filename));
+  return path.join(downloadsRoot(), safe(f.senderName), `${day(f.date)} ${safe(f.senderName)} - ${name}${ext}`);
+}
+
+const sizeOf = (file: string) => { try { return fs.statSync(file).size; } catch { return -1; } };
+
+// Which attachment (account, email, MIME part) was saved to which file, so a later download skips exactly the
+// attachments already on disk — not files that merely share a name.
+const sql = {
+  part: () => db().prepare("SELECT file, size FROM downloaded_parts WHERE account_id = ? AND msg_id = ? AND part = ?"),
+  claimed: () => db().prepare("SELECT 1 FROM downloaded_parts WHERE file = ?"),
+  record: () => db().prepare("INSERT OR REPLACE INTO downloaded_parts (account_id, msg_id, part, file, size, at) VALUES (?, ?, ?, ?, ?, ?)"),
+  update: () => db().prepare(`UPDATE downloads SET saved = ?, existing = ?, failed = ?, bytes = ?, status = ?, errors = ?, finished_at = ? WHERE id = ?`),
+};
+const stmts = new Map<keyof typeof sql, ReturnType<ReturnType<typeof db>["prepare"]>>();
+const stmt = (k: keyof typeof sql) => { let s = stmts.get(k); if (!s) stmts.set(k, (s = sql[k]())); return s; };
+
+/** True if this attachment is already saved: recorded with the same size, or (from v1.8.0, before records)
+ *  a file with its name that no other attachment is recorded for. */
+function alreadySaved(f: Found) {
+  const rec = stmt("part").get(f.accountId, f.id, f.part) as { file: string; size: number } | undefined;
+  if (rec) return sizeOf(rec.file) === rec.size;
+  const target = targetOf(f);
+  if (!fs.existsSync(target) || stmt("claimed").get(target)) return false;
+  stmt("record").run(f.accountId, f.id, f.part, target, sizeOf(target), Date.now());
+  return true;
+}
+
+interface Row {
+  id: string; title: string; formats: string; folder: string; total: number; saved: number; existing: number; failed: number;
+  bytes: number; status: Job["status"]; errors: string | null; started_at: number; finished_at: number | null;
+}
+const fromRow = (r: Row): Job => ({
+  id: r.id, title: r.title, formats: r.formats, folder: r.folder, total: r.total, saved: r.saved, existing: r.existing,
+  failed: r.failed, bytes: r.bytes, status: r.status, errors: r.errors ? JSON.parse(r.errors) : [], startedAt: r.started_at,
+  finishedAt: r.finished_at, cancelling: false,
+});
+
+function persist(job: Job) {
+  stmt("update").run(job.saved, job.existing, job.failed, job.bytes, job.status, JSON.stringify(job.errors), job.finishedAt, job.id);
+}
+
+/** Saves one attachment: streams into "<file>.part" and renames it when complete, so an interrupted download
+ *  never leaves a truncated file under the real name. Returns the bytes written. */
+async function saveFile(f: Found, content: Readable) {
+  const target = targetOf(f);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  // Another attachment already owns this name (same date and file name) → "name (2).pdf".
+  const file = stmt("claimed").get(target) ? unique(target) : target;
+  const tmp = `${file}.part`;
+  try {
+    await pipeline(content, fs.createWriteStream(tmp));
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    fs.rmSync(tmp, { force: true });
+    throw e;
+  }
+  const size = sizeOf(file);
+  stmt("record").run(f.accountId, f.id, f.part, file, size, Date.now());
+  return size;
+}
+
+/** Starts saving the chosen formats from a scan in the background; returns the job, which keeps running if the page is closed. */
 export function startDownload(scanId: string, exts: string[]): Job | null {
   const scan = scans.get(scanId);
   if (!scan) return null;
   const chosen = scan.files.filter((f) => exts.includes(f.ext));
   const root = downloadsRoot();
-  const job: Job = { id: crypto.randomUUID(), total: chosen.length, saved: 0, failed: 0, done: false, folder: root, errors: [] };
-  jobs.set(job.id, job);
   const senders = new Set(chosen.map((f) => f.sender));
-  if (senders.size === 1) job.folder = path.join(root, safe(chosen[0].senderName));
+  const names = [...new Set(chosen.map((f) => f.senderName))];
+  const job: Job = {
+    id: crypto.randomUUID(), title: names.length === 1 ? names[0] : `${names.length} senders`, formats: exts.join(","),
+    folder: senders.size === 1 && chosen.length ? path.join(root, safe(chosen[0].senderName)) : root,
+    total: chosen.length, saved: 0, existing: 0, failed: 0, bytes: 0, status: "running", errors: [],
+    startedAt: Date.now(), finishedAt: null, cancelling: false,
+  };
+  db().prepare(`INSERT INTO downloads (id, title, formats, folder, total, status, started_at) VALUES (?, ?, ?, ?, ?, 'running', ?)`)
+    .run(job.id, job.title, job.formats, job.folder, job.total, job.startedAt);
+  jobs.set(job.id, job);
+  const fail = (msg: string) => { if (job.errors.length < 5) job.errors.push(msg); };
+  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
   (async () => {
     const byAccount = new Map<string, Found[]>();
     for (const f of chosen) byAccount.set(f.accountId, [...(byAccount.get(f.accountId) ?? []), f]);
     for (const [accountId, list] of byAccount) {
-      const acc = getAccount(accountId);
-      if (!acc) { job.failed += list.length; continue; }
-      const before = job.saved + job.failed;
+      if (job.cancelling) break;
+      const before = job.saved + job.existing + job.failed;
       try {
+        const acc = getAccount(accountId);
+        if (!acc) throw new Error("Account was disconnected");
         await imapDownloadAttachments(await imapConfig(acc), list, async (ref, content) => {
-          const f = ref as Found;
-          const dir = path.join(root, safe(f.senderName));
-          fs.mkdirSync(dir, { recursive: true });
-          const { name, ext } = path.parse(safe(f.filename));
-          await pipeline(content, fs.createWriteStream(unique(path.join(dir, `${day(f.date)} ${safe(f.senderName)} - ${name}${ext}`))));
+          job.bytes += await saveFile(ref as Found, content);
           job.saved++;
+          persist(job);
         }, (ref, e) => {
           job.failed++;
-          if (job.errors.length < 5) job.errors.push(`${ref.filename}: ${e instanceof Error ? e.message : String(e)}`);
+          fail(`${ref.filename}: ${message(e)}`);
+          persist(job);
+        }, () => job.cancelling, (ref) => {
+          if (!alreadySaved(ref as Found)) return false;
+          job.existing++;
+          persist(job);
+          return true;
         });
       } catch (e) {
         // Connection failed part-way: the files not handled yet count as failed.
-        job.failed += list.length - (job.saved + job.failed - before);
-        job.errors.push(`${acc.email}: ${e instanceof Error ? e.message : String(e)}`);
+        job.failed += list.length - (job.saved + job.existing + job.failed - before);
+        fail(`${getAccount(accountId)?.email ?? "Account"}: ${message(e)}`);
       }
     }
-    job.done = true;
-  })();
+  })()
+    .catch((e) => fail(message(e)))
+    .finally(() => {
+      job.status = job.cancelling ? "cancelled" : "done";
+      job.cancelling = false;
+      job.finishedAt = Date.now();
+      try { persist(job); } catch { /* the in-memory job still reports the result */ }
+    });
   return job;
 }
 
-export const getJob = (id: string) => jobs.get(id) ?? null;
+export const getJob = (id: string): Job | null => {
+  const live = jobs.get(id);
+  if (live) return live;
+  const r = db().prepare("SELECT * FROM downloads WHERE id = ?").get(id) as Row | undefined;
+  return r ? fromRow(r) : null;
+};
 
-/** Opens a folder inside Downloads/MailClean in the system file manager. */
+/** Asks a running download to stop after the file in progress; files already saved are kept. */
+export function cancelDownload(id: string) {
+  const job = jobs.get(id);
+  if (!job || job.status !== "running") return false;
+  job.cancelling = true;
+  return true;
+}
+
+/** Download history, newest first; running downloads show live progress. */
+export function listDownloads(limit = 100): Job[] {
+  const rows = db().prepare("SELECT * FROM downloads ORDER BY started_at DESC LIMIT ?").all(limit) as unknown as Row[];
+  return rows.map((r) => jobs.get(r.id) ?? fromRow(r));
+}
+
+/** Removes finished downloads from the history (the saved files stay on disk). */
+export function clearDownloads() {
+  db().prepare("DELETE FROM downloads WHERE status != 'running'").run();
+  for (const [id, j] of jobs) if (j.status !== "running") jobs.delete(id);
+}
+
+/** Opens a folder inside Downloads/MailClean in the system file manager. Only folders — never a file, which
+ *  `open`/`explorer` would launch. */
 export function openFolder(folder: string) {
+  const root = downloadsRoot();
   const resolved = path.resolve(folder);
-  if (!resolved.startsWith(downloadsRoot())) throw new Error("Not a MailClean download folder");
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) throw new Error("Not a MailClean download folder");
+  if (resolved === root) fs.mkdirSync(root, { recursive: true });
+  let isDir = false;
+  try { isDir = fs.statSync(resolved).isDirectory(); } catch { throw new Error("This folder was moved or deleted"); }
+  if (!isDir) throw new Error("Not a folder");
   const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
   spawn(cmd, [resolved], { detached: true, stdio: "ignore" }).unref();
 }

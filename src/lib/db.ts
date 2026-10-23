@@ -62,6 +62,35 @@ CREATE TABLE IF NOT EXISTS rules (
   cleaned         INTEGER NOT NULL DEFAULT 0  -- emails this rule has moved so far
 );
 
+-- Attachment downloads (v1.8.1): one row per download, shown on the Downloads page. Files themselves are not stored.
+CREATE TABLE IF NOT EXISTS downloads (
+  id          TEXT PRIMARY KEY,
+  title       TEXT NOT NULL,             -- sender name, or "N senders"
+  formats     TEXT NOT NULL,             -- e.g. "pdf,png"
+  folder      TEXT NOT NULL,
+  total       INTEGER NOT NULL,
+  saved       INTEGER NOT NULL DEFAULT 0,
+  existing    INTEGER NOT NULL DEFAULT 0, -- already in the folder from an earlier download, skipped
+  failed      INTEGER NOT NULL DEFAULT 0,
+  bytes       INTEGER NOT NULL DEFAULT 0, -- bytes written
+  status      TEXT NOT NULL,             -- 'running' | 'done' | 'cancelled' | 'interrupted'
+  errors      TEXT,                      -- JSON array, first few only
+  started_at  INTEGER NOT NULL,
+  finished_at INTEGER
+);
+
+-- Which attachment was saved to which file (v1.8.1), so a later download skips exactly what is already saved.
+CREATE TABLE IF NOT EXISTS downloaded_parts (
+  account_id TEXT NOT NULL,
+  msg_id     TEXT NOT NULL,
+  part       TEXT NOT NULL,              -- MIME part number
+  file       TEXT NOT NULL,
+  size       INTEGER NOT NULL,           -- bytes on disk when saved; a different size means re-download
+  at         INTEGER NOT NULL,
+  PRIMARY KEY (account_id, msg_id, part)
+);
+CREATE INDEX IF NOT EXISTS idx_downloaded_parts_file ON downloaded_parts(file);
+
 CREATE TABLE IF NOT EXISTS unsubscribed (
   from_email TEXT PRIMARY KEY,
   method     TEXT NOT NULL,              -- 'one-click' | 'link' | 'mailto'
@@ -95,6 +124,8 @@ export function db(): DatabaseSyncType {
     d.exec("CREATE INDEX IF NOT EXISTS idx_messages_category ON messages(category)");
     // A scan can't survive a server restart; let the user resume it (stored emails are skipped).
     d.prepare("UPDATE accounts SET sync_status = 'error', sync_error = 'Scan was interrupted — click Rescan to continue' WHERE sync_status = 'syncing'").run();
+    // Downloads can't survive a restart either.
+    d.prepare("UPDATE downloads SET status = 'interrupted', finished_at = ? WHERE status = 'running'").run(Date.now());
     g.__mailcleanDb = d;
   }
   return g.__mailcleanDb;

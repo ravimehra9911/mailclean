@@ -59,3 +59,9 @@ export const IconApps = ({ className }: P) => (
 export const IconLock = ({ className }: P) => (
   <svg {...base(className)}><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
 );
+export const IconDownload = ({ className }: P) => (
+  <svg {...base(className)}><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+);
+export const IconFolder = ({ className }: P) => (
+  <svg {...base(className)}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></svg>
+);

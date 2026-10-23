@@ -72,13 +72,13 @@ const FEATURES = [
   { title: "Rules that clean for you", text: "Always trash a sender, or archive Promotions older than 30 days — applied after every sync.", isNew: true },
   { title: "Cleaning suggestions", text: "Senders you never open, mail older than a year, your Promotions tab — one click to review each.", isNew: true },
   { title: "Gmail tabs & dates", text: "Filter by Promotions, Updates, Social… or any date range, and clean only that." },
-  { title: "Save attachments in bulk", text: "Download every statement or invoice from the senders you pick — choose PDF, images or any format — to your Downloads folder.", isNew: true },
+  { title: "Save attachments in bulk", text: "Download every statement or invoice from the senders you pick — PDF, images or any format. Runs in the background, with a download history.", isNew: true },
   { title: "Who has your email", text: "Every company that has your address, with security alerts, old accounts and one-click links to review app access.", isNew: true },
   { title: "Private by design", text: "Runs on your computer. Only sender, date, size and flags are saved — never subject lines or message content." },
 ];
 
 // Shown as a pill in the hero; update with each feature release.
-const WHATS_NEW = { version: "1.8", text: "Save attachments from any sender in bulk", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.8.0" };
+const WHATS_NEW = { version: "1.8", text: "Save attachments from any sender in bulk", href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.8.1" };
 
 
 const SHOTS = [

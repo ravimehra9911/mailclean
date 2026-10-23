@@ -339,7 +339,11 @@ export async function imapListAttachments(cfg: ImapConfig, ids: string[]): Promi
 
 /** Downloads these attachments one by one (decoded), handing each file's stream to `save`. */
 export async function imapDownloadAttachments(cfg: ImapConfig, refs: AttachmentRef[],
-  save: (ref: AttachmentRef, content: Readable) => Promise<void>, onError: (ref: AttachmentRef, e: unknown) => void) {
+  save: (ref: AttachmentRef, content: Readable) => Promise<void>, onError: (ref: AttachmentRef, e: unknown) => void,
+  /** Checked before each file; true stops the download (e.g. the user cancelled). */
+  stopped: () => boolean = () => false,
+  /** Checked before each file; true skips it without fetching (e.g. it was saved before). */
+  skip: (ref: AttachmentRef) => boolean = () => false) {
   const groups = new Map<string, AttachmentRef[]>();
   for (const r of refs) {
     const { path } = parseId(r.id);
@@ -347,9 +351,12 @@ export async function imapDownloadAttachments(cfg: ImapConfig, refs: AttachmentR
   }
   await withClient(cfg, async (c) => {
     for (const [path, list] of groups) {
+      if (stopped()) return;
       const lock = await c.getMailboxLock(path, { readOnly: true });
       try {
         for (const r of list) {
+          if (stopped()) return;
+          if (skip(r)) continue;
           try {
             const { content } = await c.download(String(parseId(r.id).uid), r.part, { uid: true, chunkSize: 2 * 1024 * 1024 });
             await save(r, content);

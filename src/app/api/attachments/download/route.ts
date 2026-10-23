@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getJob, startDownload } from "@/lib/attachments";
+import { cancelDownload, getJob, startDownload } from "@/lib/attachments";
 import { DEMO_MESSAGE, isDemo } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
@@ -19,4 +19,12 @@ export async function POST(req: NextRequest) {
 export function GET(req: NextRequest) {
   const job = getJob(req.nextUrl.searchParams.get("job") ?? "");
   return job ? NextResponse.json(job) : NextResponse.json({ error: "Unknown download" }, { status: 404 });
+}
+
+/** Cancels a running download; files already saved are kept. */
+export function DELETE(req: NextRequest) {
+  if (isDemo()) return NextResponse.json({ error: DEMO_MESSAGE }, { status: 403 });
+  return cancelDownload(req.nextUrl.searchParams.get("job") ?? "")
+    ? NextResponse.json({ ok: true })
+    : NextResponse.json({ error: "This download isn't running" }, { status: 409 });
 }

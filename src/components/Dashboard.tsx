@@ -9,6 +9,7 @@ import { startTour, tourSeen, type TourKind } from "./Tour";
 import { Sidebar, type Tab } from "./Sidebar";
 import { AboutPage, HelpPage, PrivacyPage, SecurityPage } from "./Pages";
 import { IconRefresh } from "./Icons";
+import { DownloadsPage, DownloadsPill, useDownloads } from "./Downloads";
 import { UpdateBanner, useUpdates } from "./Updates";
 import { api, fmtNum, pct, type Account, type Overview } from "./api";
 import { SendersTable, type KeepOptions } from "./SendersTable";
@@ -27,6 +28,7 @@ export default function Dashboard() {
   const [sendersFilter, setSendersFilter] = useState<"all" | "mostly-unread">("all");
   // Search the Senders tab opens with (a company picked on Accounts and apps).
   const [sendersQuery, setSendersQuery] = useState("");
+  const downloads = useDownloads();
   const openTab = useCallback((t: Tab) => { setSendersFilter("all"); setSendersQuery(""); setTab(t); }, []);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [configured, setConfigured] = useState({ google: false });
@@ -142,7 +144,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen md:flex">
-      <Sidebar tab={tab} setTab={openTab} accountCount={accounts.length} version={about.version} demo={about.demo}
+      <Sidebar tab={tab} setTab={openTab} accountCount={accounts.length} downloading={downloads.running.length} version={about.version} demo={about.demo}
         onLock={lock.enabled ? () => { fetch("/api/lock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "lock" }) })
           .finally(() => setLock({ enabled: true, locked: true })); } : undefined} />
 
@@ -165,6 +167,11 @@ export default function Dashboard() {
           <SecurityPage onLockChange={checkLock} toast={toast} onOpenApps={() => openTab("apps")} />
         ) : tab === "about" ? (
           <AboutPage version={about.version} updates={updates} />
+        ) : tab === "downloads" ? (
+          <>
+            <h1 className="mb-6 text-2xl font-semibold">Downloads</h1>
+            <DownloadsPage root={downloads.root} downloads={downloads.downloads} reload={downloads.reload} demo={about.demo} toast={toast} />
+          </>
         ) : accounts.length === 0 ? (
           <Welcome configured={configured} onConnected={changed} toast={toast} />
         ) : (
@@ -225,6 +232,7 @@ export default function Dashboard() {
         )}
       </main>
 
+      {tab !== "downloads" && <DownloadsPill running={downloads.running} onOpen={() => openTab("downloads")} />}
       {toastState && (
         <div role="status" className={`fixed right-4 bottom-4 left-4 z-50 rounded-xl px-4 py-3 text-sm shadow-xl sm:left-auto sm:max-w-md ${toastState.kind === "err" ? "bg-danger text-white" : "bg-ink text-bg"}`}>
           {toastState.msg}
