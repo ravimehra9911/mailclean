@@ -92,7 +92,14 @@ npm run desktop:linux  # dist-desktop/MailClean-linux-x86_64.AppImage
 ```
 
 File names carry no version, so `releases/latest/download/<file>` links on the website always point at
-the newest GitHub release. Upload the four files to a release named after `electron/package.json`'s version.
+the newest GitHub release.
+
+### Releasing
+
+Releases are built in GitHub Actions, not locally: bump `version` in `electron/package.json`, merge, then push a
+matching tag (`git tag v1.8.2 && git push origin v1.8.2`). The **Release** workflow tests, builds all four
+installers, scans them for secrets and attaches them to a draft release, which you review and publish by hand.
+Details in [CONTRIBUTING.md](CONTRIBUTING.md#releasing).
 
 App data lives in `~/Library/Application Support/MailClean`
 (macOS) or `%APPDATA%\MailClean` (Windows); server logs are in its `logs/` folder.
@@ -100,11 +107,10 @@ App data lives in `~/Library/Application Support/MailClean`
 ### Before publishing
 
 - **Code signing.** The builds are unsigned, so macOS Gatekeeper and Windows SmartScreen warn users.
-  - macOS: an Apple Developer ID certificate plus notarization. Set `CSC_LINK`/`CSC_KEY_PASSWORD` and
-    `APPLE_ID`/`APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID`, then build; electron-builder signs and notarizes.
-  - Windows: an OV/EV code-signing certificate (`WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD`) or Azure Trusted Signing.
+  - macOS: an Apple Developer ID certificate plus notarization. Add the `MAC_CSC_LINK`/`MAC_CSC_KEY_PASSWORD` and
+    `APPLE_ID`/`APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID` repository secrets; the Release workflow then signs and notarizes.
+  - Windows: an OV/EV code-signing certificate (`WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD` secrets) or Azure Trusted Signing.
 - **App ID and name** are in the `build` section of `package.json` (`appId: app.mailclean.desktop`).
-- Bump `version` in `electron/package.json` for each release.
 
 ### Versioning
 
@@ -182,6 +188,9 @@ sign-in to the public requires Google's OAuth verification and a CASA security a
 | Website comparison chart facts | `src/lib/competitors.ts` |
 | Logo and icon export (`npm run brand`) | `scripts/brand.cjs` |
 | Packaging scripts | `scripts/` |
-| CI (typecheck, lint, test, build) | `.github/workflows/ci.yml` |
+| CI (audit, typecheck, lint, test, build) | `.github/workflows/ci.yml` |
+| Release builds and draft release on `v*` tags | `.github/workflows/release.yml` |
+| Release secret scan | `scripts/check-release.mjs` |
+| CodeQL and Dependabot | `.github/workflows/codeql.yml`, `.github/dependabot.yml` |
 | Microsoft Store package build | `.github/workflows/msix.yml` |
 | Unit tests | `src/lib/*.test.ts` |
