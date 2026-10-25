@@ -22,7 +22,7 @@
   "dependencies": {
     "driver.js": "1.8.0",
     "imapflow": "1.7.8",
-    "next": "15.5.27",
+    "next": "15.5.28",
     "react": "19.1.9",
     "react-dom": "19.1.9"
   },
@@ -35,10 +35,10 @@
     "electron": "^44.5.1",
     "electron-builder": "^26.15.7",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^15.5.27",
+    "eslint-config-next": "^15.5.28",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.5"
   },
   "build": {
     "appId": "app.mailclean.desktop",
@@ -134,5 +134,10 @@
   "homepage": "https://github.com/ravimehra9911/mailclean",
   "engines": {
     "node": ">=22.13"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.30"
+    }
   }
 }
