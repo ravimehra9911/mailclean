@@ -134,6 +134,19 @@ function createWindow(baseUrl) {
     }
   });
 
+  // The token is added to every request to the app's server, so no other origin may ever load in this
+  // window: not through a server redirect, nor inside a frame.
+  win.webContents.on("will-redirect", (event, url) => {
+    if (new URL(url).origin !== origin) {
+      event.preventDefault();
+      openExternal(url);
+    }
+  });
+  // Main-frame navigations are handled by will-navigate above (which only runs if this one doesn't cancel).
+  win.webContents.on("will-frame-navigate", (event) => {
+    if (!event.isMainFrame && new URL(event.url).origin !== origin) event.preventDefault();
+  });
+
   win.on("closed", () => (win = null));
   win.loadURL(baseUrl);
 }

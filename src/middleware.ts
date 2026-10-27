@@ -3,7 +3,8 @@ import { lockStatus, UNLOCK_COOKIE } from "@/lib/applock";
 
 // In the desktop app the server listens on localhost, where any website the user visits could send it
 // requests. The app passes a random per-launch token (MAILCLEAN_TOKEN) and adds it to every request from
-// its own window; everything else is refused. Without a token (npm run dev) these checks are skipped.
+// its own window; everything else is refused. Without a token (npm run dev / npm start, which listen on
+// 127.0.0.1) API requests sent by other websites are refused instead.
 
 // Sign-in runs in the system browser, which cannot send the token. These routes only redirect to the
 // provider or finish a sign-in protected by the OAuth state cookie, so they stay open.
@@ -14,6 +15,21 @@ function safeEqual(a: string, b: string) {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+/** True for a request another website made: an Origin that isn't this server's, or the browser's own
+ *  Sec-Fetch-Site verdict. Requests without either header (curl, older browsers on same-origin GETs) pass. */
+function crossSite(req: NextRequest) {
+  if (req.headers.get("sec-fetch-site") === "cross-site") return true;
+  const origin = req.headers.get("origin");
+  if (!origin) return false;
+  // Behind a reverse proxy the Host header may be the upstream address; the proxy passes the public one on.
+  const hosts = [req.headers.get("host"), req.headers.get("x-forwarded-host")].filter(Boolean);
+  try {
+    return !hosts.includes(new URL(origin).host);
+  } catch {
+    return true; // "null" (sandboxed frames, file:// pages) or garbage
+  }
 }
 
 export function middleware(req: NextRequest) {
@@ -39,6 +55,8 @@ export function middleware(req: NextRequest) {
       const sent = req.headers.get("x-mailclean-token") ?? "";
       if (!safeEqual(sent, token)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+  } else if (pathname.startsWith("/api/") && !OPEN.test(pathname) && crossSite(req)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // App lock: with a PIN set, data is only served after unlocking (the lock route itself stays open).

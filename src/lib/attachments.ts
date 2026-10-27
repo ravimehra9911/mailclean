@@ -94,7 +94,16 @@ export interface Job {
 
 export const downloadsRoot = () => path.join(os.homedir(), "Downloads", "MailClean");
 
-const safe = (s: string) => s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "file";
+// Windows refuses these as file or folder names, with or without an extension ("CON", "nul.txt").
+const RESERVED = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\.|$)/i;
+
+/** A file or folder name safe on every OS: no separators or control characters, never "." / ".." (which would
+ *  leave the folder it is joined to) and never a Windows device name. */
+const safe = (s: string) => {
+  const name = s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+  if (!name || /^\.+$/.test(name)) return "file";
+  return RESERVED.test(name) ? `_${name}` : name;
+};
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 /** A path that doesn't exist yet: "name.pdf", then "name (2).pdf", … */
@@ -108,9 +117,12 @@ function unique(file: string) {
 }
 
 /** Where a file is saved: Downloads/MailClean/<sender>/<date> <sender> - <file name>. */
-function targetOf(f: Found) {
+export function targetOf(f: Pick<Found, "filename" | "senderName" | "date">) {
   const { name, ext } = path.parse(safe(f.filename));
-  return path.join(downloadsRoot(), safe(f.senderName), `${day(f.date)} ${safe(f.senderName)} - ${name}${ext}`);
+  const root = downloadsRoot();
+  const target = path.resolve(root, safe(f.senderName), `${day(f.date)} ${safe(f.senderName)} - ${name}${ext}`);
+  if (!target.startsWith(root + path.sep)) throw new Error("Unsafe attachment path");
+  return target;
 }
 
 const sizeOf = (file: string) => { try { return fs.statSync(file).size; } catch { return -1; } };
