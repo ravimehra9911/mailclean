@@ -4,7 +4,8 @@
 
 import { useEffect, useRef } from "react";
 
-const COLORS = ["#7c7cf0", "#c084fc", "#60a5fa", "#3ccf7e", "#fbbf24", "#f472b6"];
+// Brand palette (logo gradient).
+const COLORS = ["#5546fd", "#1d3cfd", "#0157ff", "#0abbfd", "#21e2ef", "#40f7be"];
 
 /** Fires a confetti burst from (x, y) in viewport pixels. No-op for visitors who prefer reduced motion. */
 export function confetti(x: number, y: number) {

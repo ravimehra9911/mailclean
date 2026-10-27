@@ -41,7 +41,7 @@ export function ScrollProgress() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-  return <div aria-hidden className="fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-accent" style={{ transform: `scaleX(${p})` }} />;
+  return <div aria-hidden className="brand-bar fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-accent" style={{ transform: `scaleX(${p})` }} />;
 }
 
 /** Tilts its content in 3D toward the mouse pointer. */

@@ -60,6 +60,71 @@ body {
   color: var(--ink);
 }
 
+/* ---------- Website brand (MailClean brand guidelines) ----------
+   Pages wrapped in .brand use the logo's palette and the brand fonts; the app keeps its own theme above.
+   Royal Blue does the work; the light end of the gradient (azure, cyan, mint) is never text on white. */
+.brand {
+  --bg: #f4f6fb;          /* Cloud */
+  --card: #ffffff;
+  --ink: #0b1235;         /* Navy text */
+  --subtle: #586079;      /* Slate */
+  --line: #e2e6f0;        /* Line */
+  --muted: #eef1f7;
+  --accent: #1d3cfd;      /* Royal Blue */
+  --accent-text: #1d3cfd; /* links and accent text; lighter in dark mode for contrast on Navy */
+  --ok: #08795f;          /* Mint Dark */
+  --wordmark-mail: #080f30;
+  --brand-gradient: linear-gradient(90deg, #5546fd 0%, #1d3cfd 25%, #0157ff 45%, #0abbfd 65%, #21e2ef 82%, #40f7be 100%);
+  --shimmer: linear-gradient(90deg, #5546fd, #1d3cfd, #0157ff, #1d3cfd, #5546fd);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+:root[data-theme="dark"] .brand {
+  --bg: #070c24;
+  --card: #0e1534;
+  --ink: #e8ecfa;
+  --subtle: #a1a9c6;
+  --line: #1e2750;
+  --muted: #141c42;
+  --accent: #3d5cff;
+  --accent-text: #8fa2ff;
+  --ok: #34d7a6;
+  --wordmark-mail: #e8ecfa;
+  --shimmer: linear-gradient(90deg, #8fa2ff, #0abbfd, #21e2ef, #40f7be, #0abbfd, #4d6bff);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand {
+    --bg: #070c24;
+    --card: #0e1534;
+    --ink: #e8ecfa;
+    --subtle: #a1a9c6;
+    --line: #1e2750;
+    --muted: #141c42;
+    --accent: #3d5cff;
+  --accent-text: #8fa2ff;
+    --ok: #34d7a6;
+    --wordmark-mail: #e8ecfa;
+    --shimmer: linear-gradient(90deg, #8fa2ff, #0abbfd, #21e2ef, #40f7be, #0abbfd, #4d6bff);
+  }
+}
+.brand :is(h1, h2, h3) {
+  font-family: var(--font-inter-tight), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.brand :is(.font-mono, code, kbd, pre, textarea) {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+.brand .shimmer-text { background-image: var(--shimmer); }
+.brand .text-accent { color: var(--accent-text); }
+.brand ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+/* "Mail" in Navy, "Clean" in Royal Blue. */
+.wordmark { font-family: var(--font-inter-tight), var(--font-inter), sans-serif; font-weight: 700; letter-spacing: -0.015em; color: var(--wordmark-mail, var(--ink)); }
+.wordmark b { font-weight: inherit; color: var(--accent-text, var(--accent)); }
+.brand-bar { background: var(--brand-gradient); }
+
 /* ---------- Landing page effects (src/components/site/Effects.tsx) ---------- */
 
 .reveal {
