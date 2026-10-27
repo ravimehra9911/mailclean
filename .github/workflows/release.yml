@@ -1,0 +1,187 @@
+# Builds the desktop installers and attaches them to a DRAFT GitHub release when a tag like v1.8.2 is pushed.
+# The maintainer reviews the draft and publishes it by hand. See "Releasing" in CONTRIBUTING.md.
+# Pull requests that touch the packaging run the same build and secret scan, without creating a release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/release.yml
+      - scripts/check-release.mjs
+      - scripts/prepare-desktop.mjs
+      - scripts/after-pack.cjs
+      - electron/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches electron/package.json version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version="v$(node -p "require('./electron/package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match electron/package.json ($version). Bump the version or fix the tag."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm test
+
+  build:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: --mac
+            files: |
+              dist-desktop/MailClean-mac-arm64.dmg
+              dist-desktop/MailClean-mac-x64.dmg
+          - os: windows-latest
+            target: --win
+            files: dist-desktop/MailClean-windows-x64.exe
+          - os: ubuntu-latest
+            target: --linux
+            files: dist-desktop/MailClean-linux-x86_64.AppImage
+    runs-on: ${{ matrix.os }}
+    env:
+      # Public builds never bundle OAuth keys (see scripts/prepare-desktop.mjs).
+      MAILCLEAN_BUNDLE_OAUTH: "0"
+      # Don't let electron-builder pick up a signing identity unless the optional steps below provide one.
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      HAS_MAC_SIGNING: ${{ secrets.MAC_CSC_LINK != '' }}
+      HAS_WIN_SIGNING: ${{ secrets.WIN_CSC_LINK != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build the app
+        run: npm run desktop:prepare
+
+      - name: build/config.json is empty
+        shell: bash
+        run: |
+          if [ "$(node -p "Object.keys(require('./build/config.json')).length")" != "0" ]; then
+            echo "::error::build/config.json must be {} for public builds."
+            exit 1
+          fi
+
+      # OPTIONAL — macOS signing and notarization. Runs only when the MAC_CSC_LINK secret is set.
+      # Secrets: MAC_CSC_LINK (base64 Developer ID .p12), MAC_CSC_KEY_PASSWORD,
+      #          APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID (for notarization).
+      - name: "Optional: enable macOS signing and notarization"
+        if: runner.os == 'macOS' && env.HAS_MAC_SIGNING == 'true'
+        shell: bash
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          {
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=true"
+            echo "CSC_LINK=$MAC_CSC_LINK"
+            echo "CSC_KEY_PASSWORD=$MAC_CSC_KEY_PASSWORD"
+            echo "APPLE_ID=$APPLE_ID"
+            echo "APPLE_APP_SPECIFIC_PASSWORD=$APPLE_APP_SPECIFIC_PASSWORD"
+            echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+          } >> "$GITHUB_ENV"
+
+      # OPTIONAL — Windows code signing. Runs only when the WIN_CSC_LINK secret is set.
+      # Secrets: WIN_CSC_LINK (base64 .pfx), WIN_CSC_KEY_PASSWORD.
+      - name: "Optional: enable Windows signing"
+        if: runner.os == 'Windows' && env.HAS_WIN_SIGNING == 'true'
+        shell: bash
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          {
+            echo "WIN_CSC_LINK=$WIN_CSC_LINK"
+            echo "WIN_CSC_KEY_PASSWORD=$WIN_CSC_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Package the installers
+        run: npx electron-builder ${{ matrix.target }} --publish never
+
+      - name: Scan the unpacked app for secrets
+        run: node scripts/check-release.mjs dist-desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ runner.os }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          pattern: installers-*
+          merge-multiple: true
+
+      - name: All four installers are present
+        run: |
+          for f in MailClean-mac-arm64.dmg MailClean-mac-x64.dmg MailClean-windows-x64.exe MailClean-linux-x86_64.AppImage; do
+            test -f "installers/$f" || { echo "::error::Missing $f"; exit 1; }
+          done
+          ls -l installers
+
+      - name: Create or update the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            if [ "$(gh release view "$GITHUB_REF_NAME" --json isDraft -q .isDraft)" != "true" ]; then
+              echo "::error::Release $GITHUB_REF_NAME is already published; not replacing its files."
+              exit 1
+            fi
+            gh release upload "$GITHUB_REF_NAME" installers/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" installers/* --draft --verify-tag \
+              --title "$GITHUB_REF_NAME" --generate-notes
+          fi

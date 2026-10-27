@@ -38,7 +38,7 @@
     "eslint-config-next": "^15.5.28",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.5"
   },
   "overrides": {
     "next": {
@@ -139,5 +139,10 @@
   "homepage": "https://github.com/ravimehra9911/mailclean",
   "engines": {
     "node": ">=22.13"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.30"
+    }
   }
 }
