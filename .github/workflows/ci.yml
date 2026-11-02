@@ -1,4 +1,4 @@
-# Type-checks, lints, tests and builds the Next.js app on every push and pull request to main.
+# Audits dependencies, type-checks, lints, tests and builds the Next.js app on every push and pull request to main.
 name: CI
 
 on:
@@ -30,6 +30,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
 
       - run: npm run typecheck
 
