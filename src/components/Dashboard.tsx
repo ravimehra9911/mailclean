@@ -356,13 +356,21 @@ function Accounts({ accounts, configured, reload, toast }: {
   const [preset, setPreset] = useState<{ provider: ImapProviderId; email: string } | null>(null);
   async function disconnect(a: Account) {
     if (!confirm(`Disconnect ${a.email}? Its scanned data is deleted from MailClean. Your mailbox is not changed.`)) return;
-    await api(`/api/accounts/${a.id}`, { method: "DELETE" });
-    toast(`Disconnected ${a.email}`);
-    reload();
+    try {
+      await api(`/api/accounts/${a.id}`, { method: "DELETE" });
+      toast(`Disconnected ${a.email}`);
+      reload();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    }
   }
   async function resync(a: Account) {
-    await api(`/api/accounts/${a.id}/sync`, { method: "POST" });
-    reload();
+    try {
+      await api(`/api/accounts/${a.id}/sync`, { method: "POST" });
+      reload();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    }
   }
   return (
     <div className="space-y-6">

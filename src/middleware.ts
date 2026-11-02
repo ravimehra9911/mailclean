@@ -17,6 +17,12 @@ function safeEqual(a: string, b: string) {
   return diff === 0;
 }
 
+function localHost(host: string) {
+  if (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host)) return true;
+  const extra = (process.env.MAILCLEAN_ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
+  return extra.includes(host.toLowerCase()) || extra.includes(host.toLowerCase().replace(/:\d+$/, ""));
+}
+
 /** True for a request another website made: an Origin that isn't this server's, or the browser's own
  *  Sec-Fetch-Site verdict. Requests without either header (curl, older browsers on same-origin GETs) pass. */
 function crossSite(req: NextRequest) {
@@ -45,12 +51,13 @@ export function middleware(req: NextRequest) {
   }
 
   const { pathname } = req.nextUrl;
+  // Block DNS rebinding (a website whose name is switched to 127.0.0.1 would otherwise count as same-origin):
+  // only accept requests addressed to this machine, or to a host listed in MAILCLEAN_ALLOWED_HOSTS
+  // (comma-separated, for a reverse proxy that passes its public Host header on).
+  if (!localHost(req.headers.get("host") ?? "")) return new NextResponse("Forbidden", { status: 403 });
+
   const token = process.env.MAILCLEAN_TOKEN;
   if (token) {
-    // Block DNS-rebinding: only accept requests addressed to this machine.
-    const host = req.headers.get("host") ?? "";
-    if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return new NextResponse("Forbidden", { status: 403 });
-
     if (pathname.startsWith("/api/") && !OPEN.test(pathname)) {
       const sent = req.headers.get("x-mailclean-token") ?? "";
       if (!safeEqual(sent, token)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

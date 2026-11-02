@@ -1,7 +1,9 @@
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { downloadsRoot, targetOf } from "./attachments";
+import { downloadsRoot, markDownloaded, targetOf } from "./attachments";
 
 // A fake home folder: targetOf only builds paths, nothing is written.
 const HOME = path.join(os.tmpdir(), "mailclean-home");
@@ -43,5 +45,27 @@ describe("targetOf", () => {
     expect(path.basename(path.dirname(target("nul.txt")))).toBe("_nul.txt");
     expect(path.basename(path.dirname(target("com1")))).toBe("_com1");
     expect(path.basename(path.dirname(target("Console")))).toBe("Console");
+  });
+});
+
+describe("safe names", () => {
+  it("drops bidi and zero-width characters that disguise the real extension", () => {
+    expect(path.basename(target("Acme", "invoice\u202Efdp.exe"))).toBe("2026-03-14 Acme - invoicefdp.exe");
+    expect(path.basename(path.dirname(target("Ac\u200Bme\u2066")))).toBe("Acme");
+  });
+});
+
+describe.runIf(process.platform === "darwin")("markDownloaded", () => {
+  it("adds the macOS quarantine flag so Gatekeeper checks the file", async () => {
+    vi.restoreAllMocks();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mailclean-quarantine-"));
+    const file = path.join(dir, "x.command");
+    fs.writeFileSync(file, "echo hi");
+    try {
+      markDownloaded(file);
+      await vi.waitFor(() => expect(execFileSync("xattr", ["-p", "com.apple.quarantine", file], { encoding: "utf8" })).toMatch(/^0081;[0-9a-f]+;MailClean;/));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

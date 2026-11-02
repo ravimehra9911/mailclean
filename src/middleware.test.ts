@@ -45,6 +45,21 @@ describe("without MAILCLEAN_TOKEN (npm run dev / npm start)", () => {
     expect(middleware(req("/api/clean", { origin: "null" }, "POST")).status).toBe(403);
   });
 
+  it("refuses DNS-rebinding requests addressed to another host name", () => {
+    // evil.example now resolves to 127.0.0.1, so to the browser the page and the API share an origin.
+    const rebound = { host: "evil.example:3000", origin: "http://evil.example:3000", "sec-fetch-site": "same-origin" };
+    expect(middleware(req("http://evil.example:3000/api/senders", rebound)).status).toBe(403);
+    expect(middleware(req("http://evil.example:3000/api/clean", rebound, "POST")).status).toBe(403);
+    expect(passes(middleware(req("http://[::1]:3000/api/stats")))).toBe(true);
+  });
+
+  it("accepts hosts listed in MAILCLEAN_ALLOWED_HOSTS", () => {
+    const headers = { host: "mail.example.org", origin: "https://mail.example.org" };
+    expect(middleware(req("https://mail.example.org/api/stats", headers)).status).toBe(403);
+    vi.stubEnv("MAILCLEAN_ALLOWED_HOSTS", "other.example, mail.example.org");
+    expect(passes(middleware(req("https://mail.example.org/api/stats", headers)))).toBe(true);
+  });
+
   it("accepts the public host passed on by a reverse proxy", () => {
     const headers = { host: "127.0.0.1:3000", "x-forwarded-host": "mail.example.org", origin: "https://mail.example.org" };
     expect(passes(middleware(req("http://127.0.0.1:3000/api/stats", headers)))).toBe(true);

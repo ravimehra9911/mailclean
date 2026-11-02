@@ -1,7 +1,7 @@
 // Bulk attachment download: find the attachments in the selected senders' emails, let the user pick formats,
 // then save them to Downloads/MailClean/<sender>/ as "<date> <sender> - <file name>". Files go straight from the
 // email provider to this computer; nothing is stored in the database.
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -97,10 +97,13 @@ export const downloadsRoot = () => path.join(os.homedir(), "Downloads", "MailCle
 // Windows refuses these as file or folder names, with or without an extension ("CON", "nul.txt").
 const RESERVED = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\.|$)/i;
 
-/** A file or folder name safe on every OS: no separators or control characters, never "." / ".." (which would
- *  leave the folder it is joined to) and never a Windows device name. */
+// Bidi and zero-width characters let "invoice‮fdp.exe" show as "invoiceexe.pdf" in Finder and Explorer.
+const INVISIBLE = /[​-‏‪-‮⁦-⁩﻿]/g;
+
+/** A file or folder name safe on every OS: no separators, control or bidi characters, never "." / ".." (which
+ *  would leave the folder it is joined to) and never a Windows device name. */
 const safe = (s: string) => {
-  const name = s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+  const name = s.replace(INVISIBLE, "").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
   if (!name || /^\.+$/.test(name)) return "file";
   return RESERVED.test(name) ? `_${name}` : name;
 };
@@ -126,6 +129,19 @@ export function targetOf(f: Pick<Found, "filename" | "senderName" | "date">) {
 }
 
 const sizeOf = (file: string) => { try { return fs.statSync(file).size; } catch { return -1; } };
+
+/** Flags a saved attachment as downloaded from the internet, as browsers and mail apps do, so Gatekeeper
+ *  (macOS) and SmartScreen / Office Protected View (Windows) still check it when it is opened. Best effort. */
+export function markDownloaded(file: string) {
+  try {
+    if (process.platform === "darwin") {
+      const flag = `0081;${Math.floor(Date.now() / 1000).toString(16)};MailClean;`;
+      execFile("xattr", ["-w", "com.apple.quarantine", flag, file], () => {});
+    } else if (process.platform === "win32") {
+      fs.writeFileSync(`${file}:Zone.Identifier`, "[ZoneTransfer]\r\nZoneId=3\r\n");
+    }
+  } catch { /* a file system without extended attributes or streams (FAT, network shares) */ }
+}
 
 // Which attachment (account, email, MIME part) was saved to which file, so a later download skips exactly the
 // attachments already on disk — not files that merely share a name.
@@ -174,6 +190,7 @@ async function saveFile(f: Found, content: Readable) {
   try {
     await pipeline(content, fs.createWriteStream(tmp));
     fs.renameSync(tmp, file);
+    markDownloaded(file);
   } catch (e) {
     fs.rmSync(tmp, { force: true });
     throw e;
