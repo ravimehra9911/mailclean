@@ -160,7 +160,7 @@ const FEATURES = [
 const WHATS_NEW = {
   version: "1.9",
   text: "A fresh new look, and see how many files each sender sent",
-  href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.9.0",
+  href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.9.1",
 };
 
 const SHOTS = [

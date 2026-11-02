@@ -173,7 +173,7 @@ const SORT_SQL: Record<SenderSort, string> = {
 
 export function senders(opts: Scope & {
   sort?: SenderSort; dir?: SortDir; filter?: SenderFilter; q?: string; limit?: number; offset?: number;
-}): { rows: SenderRow[]; total: number } {
+}): { rows: SenderRow[]; total: number; counts: Record<SenderFilter, number> } {
   const { sort = "count", filter = "all", q, limit = 25, offset = 0 } = opts;
   const dir = opts.dir === "asc" ? "ASC" : "DESC";
   const { conds, args } = scopeSql(opts);
@@ -196,6 +196,13 @@ export function senders(opts: Scope & {
 
   const d = db();
   const total = (d.prepare(`SELECT COUNT(*) n FROM (${base})`).get(...args) as { n: number }).n;
+  // How many senders each filter would show (same scope and search), for the filter tabs.
+  const c = d.prepare(`SELECT COUNT(*) total, COALESCE(SUM(can_unsub > 0), 0) newsletters,
+      COALESCE(SUM(n >= 10 AND u * 1.0 / n >= 0.9), 0) unread, COALESCE(SUM(files > 0), 0) files
+    FROM (SELECT COUNT(*) n, SUM(m.unread) u, SUM(m.attachments) files,
+      SUM(CASE WHEN m.unsub_http IS NOT NULL OR m.unsub_mailto IS NOT NULL THEN 1 ELSE 0 END) can_unsub
+      FROM messages m ${whereOf(conds)} GROUP BY m.from_email)`).get(...args) as { total: number; newsletters: number; unread: number; files: number };
+  const counts = { all: c.total, newsletters: c.newsletters, "mostly-unread": c.unread, attachments: c.files };
   const rows = d.prepare(`${base} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...args, limit, offset) as unknown as SenderRow[];
 
   // Per-account counts for the senders on this page (same scope).
@@ -222,7 +229,7 @@ export function senders(opts: Scope & {
       if (r && !r.category) { r.category = c.category; r.category_share = c.n / c.total; }
     }
   }
-  return { rows, total };
+  return { rows, total, counts };
 }
 
 /** Parses `account`, `from`, `to` and `category` query parameters into a Scope. */

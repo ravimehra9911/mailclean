@@ -6,6 +6,7 @@ import { REPO_URL } from "@/lib/site";
 import { fmtNum, type Account } from "./api";
 import {
   IconAbout, IconAccounts, IconApps, IconBack, IconDownload, IconLock, IconHelp, IconNewsletter, IconOverview, IconPrivacy, IconRules, IconSenders,
+  IconSettings,
 } from "./Icons";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -18,7 +19,7 @@ const GROUPS: { label: string; items: Item["tab"][] }[] = [
   { label: "Automate", items: ["rules"] },
   { label: "Your data", items: ["downloads", "apps", "accounts"] },
 ];
-// Rarely used pages: in the "?" menu on desktop, at the end of the scrolling bar on small screens.
+// Rarely used pages: in the settings panel on desktop, at the end of the scrolling bar on small screens.
 const SUPPORT: Tab[] = ["help", "privacy", "security", "about"];
 
 /** App navigation: a sidebar on desktop, a scrollable bar on small screens. */
@@ -48,6 +49,9 @@ export function Sidebar({ tab, setTab, accounts, accountId, setAccountId, inboxC
     security: { tab: "security", label: "Security", Icon: IconLock },
     about: { tab: "about", label: "About", Icon: IconAbout },
   };
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const onSupportPage = SUPPORT.includes(tab);
 
   const item = (i: Item, className = "") => {
     const active = tab === i.tab;
@@ -98,8 +102,15 @@ export function Sidebar({ tab, setTab, accounts, accountId, setAccountId, inboxC
             <IconLock className="size-[18px]" />
           </button>
         )}
-        <HelpMenu tab={tab} setTab={setTab} version={version} updateAvailable={updateAvailable} />
+        <button type="button" onClick={() => setSettingsOpen(true)} aria-expanded={settingsOpen} data-tour="help"
+          title="Settings and help" aria-label={updateAvailable ? "Settings and help — update available" : "Settings and help"}
+          className={`relative ml-auto grid size-8 place-items-center rounded-lg hover:bg-muted hover:text-ink ${onSupportPage ? "bg-accent/10 text-accent" : "text-subtle"}`}>
+          <IconSettings className="size-[18px]" />
+          {updateAvailable && <span aria-hidden className="absolute top-1 right-1 size-2 rounded-full bg-accent ring-2 ring-card" />}
+        </button>
       </div>
+
+      {settingsOpen && <SettingsPanel tab={tab} setTab={setTab} version={version} updateAvailable={updateAvailable} onClose={() => setSettingsOpen(false)} />}
     </aside>
   );
 }
@@ -160,59 +171,66 @@ function ago(ms: number): string {
   return `${Math.round(h / 24)} d ago`;
 }
 
-/** The "?" button: Help, Privacy, Security, Report a problem and About, in a small menu above it. */
-function HelpMenu({ tab, setTab, version, updateAvailable }: {
-  tab: Tab; setTab: (t: Tab) => void; version: string; updateAvailable?: boolean;
+/** Covers the sidebar with Help, Privacy, Security, Report a problem, About and the theme; ✕ goes back to the menu. */
+function SettingsPanel({ tab, setTab, version, updateAvailable, onClose }: {
+  tab: Tab; setTab: (t: Tab) => void; version: string; updateAvailable?: boolean; onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-  const onSupportPage = SUPPORT.includes(tab);
-
+  const close = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    const onDown = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
+    close.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onDown);
-    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("pointerdown", onDown); };
-  }, [open]);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
-  const go = (t: Tab) => { setTab(t); setOpen(false); };
-  const row = "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium hover:bg-muted";
-  const pageRow = (t: Tab, label: string, Icon: Item["Icon"], extra?: React.ReactNode) => (
-    <button role="menuitem" type="button" onClick={() => go(t)} aria-current={tab === t ? "page" : undefined}
-      className={`${row} ${tab === t ? "text-accent" : "text-ink/80"}`}>
-      <Icon className="size-4 shrink-0" /> <span className="flex-1">{label}</span>{extra}
+  const row = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm";
+  const page = (t: Tab, label: string, Icon: Item["Icon"], extra?: React.ReactNode) => (
+    <button type="button" onClick={() => setTab(t)} aria-current={tab === t ? "page" : undefined}
+      className={`${row} ${tab === t ? "bg-accent/10 font-semibold text-accent" : "font-medium text-subtle hover:bg-muted hover:text-ink"}`}>
+      <Icon className="size-[18px] shrink-0" /> <span className="flex-1">{label}</span>{extra}
     </button>
   );
 
   return (
-    <div ref={wrap} className="relative ml-auto" data-tour="help">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open}
-        title="Help and info" aria-label={updateAvailable ? "Help and info — update available" : "Help and info"}
-        className={`relative grid size-8 place-items-center rounded-lg hover:bg-muted hover:text-ink ${open || onSupportPage ? "bg-accent/10 text-accent" : "text-subtle"}`}>
-        <IconHelp className="size-[18px]" />
-        {updateAvailable && <span aria-hidden className="absolute top-1 right-1 size-2 rounded-full bg-accent ring-2 ring-card" />}
-      </button>
-      {open && (
-        <div role="menu" aria-label="Help and info"
-          className="absolute right-0 bottom-full z-40 mb-2 w-56 rounded-xl border border-line bg-card p-1.5 shadow-xl">
-          {pageRow("help", "Help & FAQ", IconHelp)}
-          {pageRow("privacy", "Privacy", IconPrivacy)}
-          {pageRow("security", "Security", IconLock)}
-          <div className="mx-1.5 my-1 h-px bg-line" />
-          <a role="menuitem" href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}
-            className={`${row} text-ink/80`}>
-            <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-            </svg>
-            <span className="flex-1">Report a problem</span><span aria-hidden className="text-subtle">↗</span>
-          </a>
-          {pageRow("about", "About MailClean", IconAbout, updateAvailable
-            ? <span className="rounded-full bg-accent/10 px-1.5 py-px text-[11px] font-semibold text-accent">Update</span>
-            : version && <span className="text-xs text-subtle tabular-nums">v{version}</span>)}
+    <div role="dialog" aria-label="Settings and help" className="absolute inset-0 z-40 hidden flex-col bg-card md:flex">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-4">
+        <IconSettings className="size-[18px] text-subtle" />
+        <h2 className="flex-1 text-base">Settings &amp; help</h2>
+        <button ref={close} type="button" onClick={onClose} title="Back to menu" aria-label="Close, back to menu"
+          className="grid size-8 place-items-center rounded-lg text-subtle hover:bg-muted hover:text-ink">
+          <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>
+      </div>
+
+      <nav aria-label="Settings and help" className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-3">
+        <div className="px-3 pt-1 pb-1.5 text-[11px] font-semibold tracking-wider text-subtle/80 uppercase">Help</div>
+        {page("help", "Help & FAQ", IconHelp)}
+        <a href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer"
+          className={`${row} font-medium text-subtle hover:bg-muted hover:text-ink`}>
+          <svg viewBox="0 0 24 24" className="size-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+          </svg>
+          <span className="flex-1">Report a problem</span><span aria-hidden>↗</span>
+        </a>
+
+        <div className="px-3 pt-5 pb-1.5 text-[11px] font-semibold tracking-wider text-subtle/80 uppercase">Your data</div>
+        {page("privacy", "Privacy", IconPrivacy)}
+        {page("security", "Security", IconLock)}
+
+        <div className="px-3 pt-5 pb-1.5 text-[11px] font-semibold tracking-wider text-subtle/80 uppercase">App</div>
+        <div className={`${row} justify-between font-medium text-subtle`}>
+          <span>Theme</span><ThemeToggle />
         </div>
-      )}
+        {page("about", "About MailClean", IconAbout, updateAvailable
+          ? <span className="rounded-full bg-accent/10 px-1.5 py-px text-[11px] font-semibold text-accent">Update</span>
+          : version && <span className="text-xs text-subtle tabular-nums">v{version}</span>)}
+      </nav>
+
+      <div className="border-t border-line px-3 py-3">
+        <button type="button" onClick={onClose} className={`${row} justify-center font-medium text-accent hover:bg-accent/10`}>
+          <IconBack className="size-4" /> Back to menu
+        </button>
+      </div>
     </div>
   );
 }
