@@ -24,6 +24,8 @@ export interface Overview {
   newsletters: number;
   daily: { day: string; count: number }[];
   byAccount: AccountShare[];
+  /** Email count per account id, for all accounts (same dates and tab). */
+  inboxes: Record<string, number>;
   years: number[];
   categories: { category: GmailCategory; count: number; unread: number; bytes: number }[];
   suggestions: {
@@ -54,6 +56,8 @@ export interface Sender {
   first: number;
   last: number;
   accounts: string;
+  /** Attached files; null when not counted yet. */
+  attachments: number | null;
   byAccount: AccountShare[];
   can_unsub: number;
   unsubscribed: number;

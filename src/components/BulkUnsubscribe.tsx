@@ -1,17 +1,18 @@
 "use client";
 
 // Bulk unsubscribe: shows what will happen to each selected sender, asks for confirmation, runs the
-// one-click unsubscribes in the background, then lists the pages the user still needs to open.
+// one-click unsubscribes in the background, then lists the pages the user still needs to open and offers to
+// trash the emails these senders already sent.
 
 import { useEffect, useState } from "react";
-import { api } from "./api";
+import { api, fmtNum } from "./api";
 
 type Method = "one-click" | "link" | "mailto" | "none";
 interface Plan { sender: string; name: string | null; method: Method; already: boolean }
 interface Outcome { results: { sender: string; status: "done" | "failed" }[]; links: { sender: string; url: string }[] }
 
-export function BulkUnsubscribe({ senders, onClose, onDone }: {
-  senders: string[]; onClose: () => void; onDone: () => void;
+export function BulkUnsubscribe({ senders, emails, onClose, onDone, onTrash }: {
+  senders: string[]; emails?: number; onClose: () => void; onDone: () => void; onTrash?: () => void;
 }) {
   const [plan, setPlan] = useState<Plan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +52,11 @@ export function BulkUnsubscribe({ senders, onClose, onDone }: {
   function close() {
     if (outcome) onDone();
     onClose();
+  }
+
+  function trash() {
+    if (outcome) onDone();
+    onTrash?.();
   }
 
   function markOpened(sender: string, url: string) {
@@ -126,11 +132,30 @@ export function BulkUnsubscribe({ senders, onClose, onDone }: {
               {done.length === 0 && links.length === 0 && <p className="text-subtle">Nothing more to do.</p>}
             </>
           )}
+
+          {plan && onTrash && (phase === "result" || auto.length + web.length === 0) && (
+            <p className="rounded-lg bg-muted/60 px-3 py-2 text-subtle">
+              Unsubscribing only stops new emails. {emails ? <><b className="text-ink">{fmtNum(emails)}</b> emails</> : "The emails"} these
+              senders already sent are still in your mailbox — move them to Trash too?
+            </p>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-line px-6 py-3">
           {phase === "result" ? (
-            <button onClick={close} className="h-9 rounded-lg bg-accent px-4 text-sm font-medium text-white hover:opacity-90">Done</button>
+            onTrash ? (
+              <>
+                <button onClick={close} className="h-9 rounded-lg border border-line px-4 text-sm font-medium hover:bg-muted">Keep emails</button>
+                <button onClick={trash} className="h-9 rounded-lg bg-danger px-4 text-sm font-medium text-white hover:opacity-90">Move emails to Trash</button>
+              </>
+            ) : (
+              <button onClick={close} className="h-9 rounded-lg bg-accent px-4 text-sm font-medium text-white hover:opacity-90">Done</button>
+            )
+          ) : plan && onTrash && auto.length + web.length === 0 ? (
+            <>
+              <button onClick={close} className="h-9 rounded-lg border border-line px-4 text-sm font-medium hover:bg-muted">Cancel</button>
+              <button onClick={trash} className="h-9 rounded-lg bg-danger px-4 text-sm font-medium text-white hover:opacity-90">Move emails to Trash</button>
+            </>
           ) : (
             <>
               <button onClick={close} disabled={phase === "working"} className="h-9 rounded-lg border border-line px-4 text-sm font-medium hover:bg-muted disabled:opacity-50">Cancel</button>

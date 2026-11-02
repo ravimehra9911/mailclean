@@ -187,8 +187,9 @@ export async function imapSync(
               if (!box) break;
               // Only the header fields we use — not the IMAP envelope, which includes the subject line.
               // Yahoo/AOL can't return single fields (see fullHeaders); their header block is parsed for these only.
+              // The MIME structure (no content) gives the number of attached files.
               for await (const m of c.fetch(range, {
-                uid: true, flags: true, size: true, internalDate: true, labels: allMail,
+                uid: true, flags: true, size: true, internalDate: true, labels: allMail, bodyStructure: true,
                 headers: cfg.fullHeaders ? true : ["from", "date", "list-unsubscribe", "list-unsubscribe-post"],
               })) {
                 const labels = m.labels ?? new Set<string>();
@@ -198,6 +199,8 @@ export async function imapSync(
                 const unsub = parseListUnsubscribe(headerValue(raw, "List-Unsubscribe"), headerValue(raw, "List-Unsubscribe-Post"));
                 const sender = parseFrom(headerValue(raw, "From"));
                 const sent = Date.parse(headerValue(raw, "Date") ?? "");
+                const files: Omit<AttachmentRef, "id">[] = [];
+                attachmentsIn(m.bodyStructure, files);
                 rows.push({
                   msg_id: makeId(box.uidValidity, m.uid, f.path),
                   from_email: sender.email,
@@ -212,6 +215,7 @@ export async function imapSync(
                   category: categories ? categories.get(m.uid) ?? "primary" : null,
                   starred: !!m.flags?.has("\\Flagged"),
                   important: labels.has("\\Important"),
+                  attachments: m.bodyStructure ? files.length : null,
                 });
               }
             } finally {
@@ -285,7 +289,11 @@ export interface AttachmentRef {
   size: number;
 }
 
-function attachmentsIn(node: MessageStructureObject | undefined, out: Omit<AttachmentRef, "id">[]) {
+// Inline images below this size that the email's HTML shows (logos, signature icons) are not counted as files.
+const INLINE_IMAGE_MAX = 100 * 1024;
+
+/** Collects the attached files in a message's MIME structure; exported for tests. */
+export function attachmentsIn(node: MessageStructureObject | undefined, out: Omit<AttachmentRef, "id">[]) {
   if (!node) return;
   if (node.childNodes?.length) {
     for (const child of node.childNodes) attachmentsIn(child, out);
@@ -295,11 +303,15 @@ function attachmentsIn(node: MessageStructureObject | undefined, out: Omit<Attac
   // A file name, or an explicit attachment disposition, marks a file; plain text/HTML bodies have neither.
   if (!node.part || (!name && node.disposition !== "attachment")) return;
   const encoded = node.size ?? 0;
+  // A small image with a Content-ID that isn't marked as an attachment is part of the email's design.
+  // Larger inline images stay: Apple Mail sends photos inline.
+  const decoded = node.encoding?.toLowerCase() === "base64" ? Math.round(encoded * 0.75) : encoded;
+  if (node.disposition !== "attachment" && node.id && node.type?.toLowerCase().startsWith("image/") && decoded < INLINE_IMAGE_MAX) return;
   out.push({
     part: node.part,
     filename: decodeWords(name ?? `attachment-${node.part}`).trim(),
     type: (node.type || "application/octet-stream").toLowerCase(),
-    size: node.encoding?.toLowerCase() === "base64" ? Math.round(encoded * 0.75) : encoded,
+    size: decoded,
   });
 }
 

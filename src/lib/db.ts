@@ -121,6 +121,8 @@ export function db(): DatabaseSyncType {
     if (!mcols.includes("category")) d.exec("ALTER TABLE messages ADD COLUMN category TEXT");
     if (!mcols.includes("starred")) d.exec("ALTER TABLE messages ADD COLUMN starred INTEGER NOT NULL DEFAULT 0");
     if (!mcols.includes("important")) d.exec("ALTER TABLE messages ADD COLUMN important INTEGER NOT NULL DEFAULT 0");
+    // Attached files per email (v1.9); NULL until the account is rescanned, and for Gmail API accounts.
+    if (!mcols.includes("attachments")) d.exec("ALTER TABLE messages ADD COLUMN attachments INTEGER");
     d.exec("CREATE INDEX IF NOT EXISTS idx_messages_category ON messages(category)");
     // A scan can't survive a server restart; let the user resume it (stored emails are skipped).
     d.prepare("UPDATE accounts SET sync_status = 'error', sync_error = 'Scan was interrupted — click Rescan to continue' WHERE sync_status = 'syncing'").run();
@@ -168,6 +170,8 @@ export interface MessageMeta {
   category?: GmailCategory | null;
   starred?: boolean;
   important?: boolean;
+  /** Number of attached files; null when unknown. */
+  attachments?: number | null;
 }
 
 /** Gmail's inbox tabs, in the order Gmail shows them. */
@@ -198,14 +202,14 @@ export function updateAccount(id: string, fields: Partial<AccountRow>) {
 export function insertMessages(accountId: string, rows: MessageMeta[]) {
   const d = db();
   const stmt = d.prepare(`INSERT OR REPLACE INTO messages
-    (account_id, msg_id, from_email, from_name, date, size, unread, in_inbox, unsub_http, unsub_mailto, one_click, category, starred, important)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    (account_id, msg_id, from_email, from_name, date, size, unread, in_inbox, unsub_http, unsub_mailto, one_click, category, starred, important, attachments)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   d.exec("BEGIN");
   try {
     for (const r of rows) {
       stmt.run(accountId, r.msg_id, r.from_email, r.from_name, r.date, r.size,
         r.unread ? 1 : 0, r.in_inbox ? 1 : 0, r.unsub_http, r.unsub_mailto, r.one_click ? 1 : 0,
-        r.category ?? null, r.starred ? 1 : 0, r.important ? 1 : 0);
+        r.category ?? null, r.starred ? 1 : 0, r.important ? 1 : 0, r.attachments ?? null);
     }
     d.exec("COMMIT");
   } catch (e) {

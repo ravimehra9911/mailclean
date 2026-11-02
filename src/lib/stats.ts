@@ -10,6 +10,8 @@ export interface Overview {
   newsletters: number;
   daily: { day: string; count: number }[];
   byAccount: AccountShare[];
+  /** Email count per account id, for all accounts (same dates and tab). */
+  inboxes: Record<string, number>;
   /** Years that have mail (for the date filter), newest first. */
   years: number[];
   /** Emails per Gmail tab in this scope (ignoring the category filter); empty when no Gmail data. */
@@ -43,6 +45,8 @@ export interface SenderRow {
   first: number;
   last: number;
   accounts: string; // comma-separated account emails
+  /** Attached files in this sender's emails; null when not counted yet (rescan needed). */
+  attachments: number | null;
   byAccount: AccountShare[]; // how many of this sender's emails are in each connected account
   can_unsub: number;
   unsubscribed: number;
@@ -105,6 +109,10 @@ export function overview(scope: Scope): Overview {
     FROM accounts acc LEFT JOIN messages m ON m.account_id = acc.id ${dates.conds.map((c) => `AND ${c}`).join(" ")}
     ${scope.accountId ? "WHERE acc.id = ?" : ""} GROUP BY acc.id ORDER BY count DESC`)
     .all(...dates.args, ...(scope.accountId ? [scope.accountId] : [])) as unknown as AccountShare[];
+  // Every inbox's email count in the same dates and tab, for the sidebar's inbox picker.
+  const inboxes = Object.fromEntries((d.prepare(`SELECT acc.id, COUNT(m.msg_id) n FROM accounts acc
+    LEFT JOIN messages m ON m.account_id = acc.id ${dates.conds.map((c) => `AND ${c}`).join(" ")} GROUP BY acc.id`)
+    .all(...dates.args) as { id: string; n: number }[]).map((r) => [r.id, r.n]));
 
   const acc = scopeSql({ accountId: scope.accountId });
   const years = (d.prepare(`SELECT DISTINCT CAST(strftime('%Y', date / 1000, 'unixepoch', 'localtime') AS INTEGER) y
@@ -141,15 +149,16 @@ export function overview(scope: Scope): Overview {
     newsletters: newsletters.n,
     daily,
     byAccount,
+    inboxes,
     years,
     categories,
     suggestions: { old: { ...old, before }, neverOpened, newsletters: nl, freeable },
   };
 }
 
-export type SenderSort = "name" | "account" | "count" | "bytes" | "unread" | "last";
+export type SenderSort = "name" | "account" | "count" | "bytes" | "unread" | "last" | "attachments";
 export type SortDir = "asc" | "desc";
-export type SenderFilter = "all" | "newsletters" | "mostly-unread";
+export type SenderFilter = "all" | "newsletters" | "mostly-unread" | "attachments";
 
 // Whitelisted ORDER BY expressions; the direction is appended, with a stable tie-breaker.
 const SORT_SQL: Record<SenderSort, string> = {
@@ -159,6 +168,7 @@ const SORT_SQL: Record<SenderSort, string> = {
   bytes: "bytes",
   unread: "SUM(m.unread) * 1.0 / COUNT(*)",
   last: "last",
+  attachments: "COALESCE(SUM(m.attachments), -1)",
 };
 
 export function senders(opts: Scope & {
@@ -172,11 +182,12 @@ export function senders(opts: Scope & {
     filter === "newsletters" ? "HAVING can_unsub > 0"
     // Aggregates spelled out: in HAVING, SQLite reads "unread" as the messages column, not the SUM alias.
     : filter === "mostly-unread" ? "HAVING COUNT(*) >= 10 AND SUM(m.unread) * 1.0 / COUNT(*) >= 0.9"
+    : filter === "attachments" ? "HAVING SUM(m.attachments) > 0"
     : "";
   const order = `${SORT_SQL[sort] ?? SORT_SQL.count} ${dir}, count DESC, email ASC`;
 
   const base = `SELECT m.from_email email, MAX(m.from_name) name, COUNT(*) count, SUM(m.size) bytes, SUM(m.unread) unread,
-      SUM(m.in_inbox) inbox, MIN(m.date) first, MAX(m.date) last, GROUP_CONCAT(DISTINCT acc.email) accounts,
+      SUM(m.in_inbox) inbox, SUM(m.attachments) attachments, MIN(m.date) first, MAX(m.date) last, GROUP_CONCAT(DISTINCT acc.email) accounts,
       MIN(acc.email) first_account,
       SUM(CASE WHEN m.unsub_http IS NOT NULL OR m.unsub_mailto IS NOT NULL THEN 1 ELSE 0 END) can_unsub,
       MAX(CASE WHEN u.from_email IS NOT NULL THEN 1 ELSE 0 END) unsubscribed

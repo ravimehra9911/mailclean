@@ -16,8 +16,8 @@ const keepNote = (k: KeepOptions) => {
   return parts.length ? `\n\nKept: ${parts.join(" and ")}.` : "";
 };
 
-type Filter = "all" | "newsletters" | "mostly-unread";
-type Sort = "name" | "account" | "count" | "bytes" | "unread" | "last";
+type Filter = "all" | "newsletters" | "mostly-unread" | "attachments";
+type Sort = "name" | "account" | "count" | "bytes" | "unread" | "last" | "attachments";
 type Dir = "asc" | "desc";
 
 export function SendersTable(props: {
@@ -79,6 +79,15 @@ export function SendersTable(props: {
   const selRows = data.rows.filter((r) => selected.has(r.email));
   const selCount = selRows.reduce((a, r) => a + r.count, 0);
   const selBytes = selRows.reduce((a, r) => a + r.bytes, 0);
+  const selFiles = selRows.reduce((a, r) => a + (r.attachments ?? 0), 0);
+  const scope = { accountId: accountId || undefined, from: range.from, to: range.to, category: category || undefined };
+  /** Opens the attachments dialog for these senders. */
+  const saveAttachments = (rows: Sender[]) => setAttFor({
+    senders: rows.map((r) => r.email),
+    names: Object.fromEntries(rows.map((r) => [r.email, r.name || r.email.split("@")[1] || r.email])),
+    scope,
+    onClose: () => setAttFor(null),
+  });
 
   async function clean(emails: string[], action: "trash" | "archive") {
     const rows = data.rows.filter((r) => emails.includes(r.email));
@@ -147,10 +156,10 @@ export function SendersTable(props: {
             value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search sender…"
             className="h-9 w-full rounded-lg border border-line bg-card px-3 text-sm outline-none focus:border-accent sm:w-64"
           />
-          {(["all", "newsletters", "mostly-unread"] as Filter[]).map((f) => (
+          {(["all", "newsletters", "mostly-unread", "attachments"] as Filter[]).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
               className={`h-9 rounded-full border px-3 text-sm ${filter === f ? "border-accent bg-accent text-white" : "border-line bg-card hover:bg-muted"}`}>
-              {f === "all" ? "All senders" : f === "newsletters" ? "Newsletters" : "Mostly unread"}
+              {f === "all" ? "All senders" : f === "newsletters" ? "Newsletters" : f === "mostly-unread" ? "Mostly unread" : "Has attachments"}
             </button>
           ))}
           {setKeep && (
@@ -176,19 +185,19 @@ export function SendersTable(props: {
 
       {attFor && <AttachmentsDialog {...attFor} />}
       {unsubFor && (
-        <BulkUnsubscribe senders={unsubFor} onClose={() => setUnsubFor(null)}
-          onDone={() => { setSelected(new Set()); onChanged(); }} />
+        <BulkUnsubscribe senders={unsubFor} emails={selCount} onClose={() => setUnsubFor(null)}
+          onDone={onChanged} onTrash={() => { setUnsubFor(null); clean(unsubFor, "trash"); }} />
       )}
 
       {selected.size > 0 && (
         <div className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-3 rounded-xl bg-accent px-4 py-3 text-sm text-white shadow-lg">
-          <span><b>{selected.size}</b> senders · {fmtNum(selCount)} emails · {fmtBytes(selBytes)}</span>
+          <span><b>{selected.size}</b> senders · {fmtNum(selCount)} emails · {fmtBytes(selBytes)}{selFiles > 0 && ` · ${fmtNum(selFiles)} attachments`}</span>
           <div className="ml-auto flex flex-wrap gap-2">
             <button disabled={!!busy} title="Save the attachments from these senders' emails to your Downloads folder"
               onClick={() => setAttFor({
                 senders: [...selected],
                 names: Object.fromEntries(selRows.map((r) => [r.email, r.name || r.email.split("@")[1] || r.email])),
-                scope: { accountId: accountId || undefined, from: range.from, to: range.to, category: category || undefined },
+                scope,
                 onClose: () => setAttFor(null),
               })}
               className="rounded-lg bg-white/15 px-3 py-1.5 hover:bg-white/25 disabled:opacity-50">Attachments</button>
@@ -224,6 +233,7 @@ export function SendersTable(props: {
                 )} />
               {th("count", "Emails", "right")}
               {th("bytes", "Size", "right")}
+              {th("attachments", "Files", "right")}
               {th("unread", "Unread", "right")}
               {!compact && th("last", "Last")}
               <th className="px-3 py-2.5 text-right">Actions</th>
@@ -259,6 +269,7 @@ export function SendersTable(props: {
                   </td>
                   <td className="px-2 py-2.5 text-right tabular-nums font-medium">{fmtNum(r.count)}</td>
                   <td className="px-2 py-2.5 text-right tabular-nums text-subtle">{fmtBytes(r.bytes)}</td>
+                  <td className="px-2 py-2.5 text-right"><FilesCell count={r.attachments} name={r.name || r.email} onOpen={() => saveAttachments([r])} /></td>
                   <td className="px-2 py-2.5 text-right tabular-nums">
                     <span className={unreadRate >= 0.9 ? "font-medium text-danger" : "text-subtle"}>{pct(unreadRate)}</span>
                   </td>
@@ -289,7 +300,7 @@ export function SendersTable(props: {
               );
             })}
             {data.rows.length === 0 && (
-              <tr><td colSpan={8} className="px-3 py-10 text-center text-subtle">No senders found.</td></tr>
+              <tr><td colSpan={9} className="px-3 py-10 text-center text-subtle">No senders found.</td></tr>
             )}
           </tbody>
         </table>
@@ -435,6 +446,23 @@ function CopyButton({ text, toast }: { text: string; toast: (msg: string, kind?:
   );
 }
 
+
+/** Attached files from a sender: a button that opens the save dialog, a dash when there are none. */
+function FilesCell({ count, name, onOpen }: { count: number | null; name: string; onOpen: () => void }) {
+  if (count === null) {
+    return <span title="Not counted yet — click Sync to count attachments" className="cursor-help text-subtle/60">–</span>;
+  }
+  if (!count) return <span title="No attachments" className="text-subtle/50">—</span>;
+  return (
+    <button type="button" onClick={onOpen} title={`Save ${fmtNum(count)} attachments from ${name}`}
+      className="inline-flex items-center gap-1 rounded-md bg-accent/10 px-1.5 py-0.5 text-xs font-semibold text-accent tabular-nums hover:bg-accent/15">
+      <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7" />
+      </svg>
+      {fmtNum(count)}
+    </button>
+  );
+}
 
 const HUES = [210, 340, 160, 30, 270, 190, 10, 120];
 

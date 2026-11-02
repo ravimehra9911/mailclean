@@ -39,7 +39,7 @@ const SENDERS: [string, string, number, number, number, boolean, GmailCategory][
 ];
 
 // Bump to reseed demo databases created by an older version.
-const DEMO_VERSION = "4";
+const DEMO_VERSION = "5";
 
 const ACCOUNTS = [
   { provider: "gmail", email: "you@example.com", share: 0.65 },
@@ -50,6 +50,13 @@ const ACCOUNTS = [
 function rng(seed: number) {
   return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
 }
+
+// Share of each sender's emails with attached files (statements, invoices, tickets, shared work).
+const ATTACHMENT_RATE: Record<string, number> = {
+  "alerts@northwindbank.example": 0.9, "alerts@paywallet.example": 0.6, "accounts@company.example": 0.85,
+  "priya@studio.example": 0.55, "rahul@client.example": 0.45, "tickets@railbook.example": 1,
+  "receipts@citycabs.example": 0.95, "trips@travelnest.example": 0.15, "deals@shopkart.example": 0.08,
+};
 
 /** Replaces all data with the sample mailboxes. */
 export function seedDemo() {
@@ -87,6 +94,7 @@ export function seedDemo() {
           category: acc.provider === "gmail" ? (rand() < 0.92 ? category : personal ? "updates" : "primary") : null,
           starred: personal && rand() < 0.25,
           important: acc.provider === "gmail" && (personal || email.includes("bank")) && rand() < 0.7,
+          attachments: rand() < (ATTACHMENT_RATE[email] ?? 0) ? 1 + Math.floor(rand() * 2) : 0,
         });
       }
     }

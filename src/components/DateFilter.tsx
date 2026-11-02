@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** Selected date range in epoch ms (`to` exclusive); both undefined = all time. */
 export interface DateRange {
@@ -34,50 +34,89 @@ export function rangeParams(p: URLSearchParams, r: DateRange) {
   if (r.to !== undefined) p.set("to", String(Math.floor(r.to)));
 }
 
-/** Date filter: all time, recent periods, a whole year, or a custom start and end date. */
-export function DateFilter({ value, years, onChange }: { value: DateRange; years: number[]; onChange: (r: DateRange) => void }) {
-  const [start, setStart] = useState(value.key === "custom" && value.from ? toIso(value.from) : "");
-  const [end, setEnd] = useState(value.key === "custom" && value.to ? toIso(value.to - DAY) : "");
-  const custom = value.key === "custom";
-  // Follow ranges set from outside (e.g. a cleaning suggestion picks "older than a year").
-  useEffect(() => {
-    if (value.key !== "custom") return;
-    setStart(value.from ? toIso(value.from) : "");
-    setEnd(value.to ? toIso(value.to - DAY) : "");
-  }, [value]);
+const QUICK: [string, string][] = [["all", "All time"], ["30d", "30 days"], ["90d", "90 days"], ["365d", "12 months"]];
 
-  function applyCustom(s: string, e: string) {
-    setStart(s);
-    setEnd(e);
-    if (s && e && s > e) return; // wait until the range is valid
-    onChange({ key: "custom", from: s ? localMidnight(s) : undefined, to: e ? localMidnight(e) + DAY : undefined });
+/** Date filter: a button that opens quick periods, each year with email (newest first) and custom dates. */
+export function DateFilter({ value, years, onChange }: { value: DateRange; years: number[]; onChange: (r: DateRange) => void }) {
+  const [open, setOpen] = useState(false);
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const wrap = useRef<HTMLDivElement>(null);
+
+  // Opening shows the current custom range (it can also be set from outside, e.g. "older than a year").
+  useEffect(() => {
+    if (!open) return;
+    setStart(value.key === "custom" && value.from ? toIso(value.from) : "");
+    setEnd(value.key === "custom" && value.to ? toIso(value.to - DAY) : "");
+  }, [open, value]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onDown = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("pointerdown", onDown); };
+  }, [open]);
+
+  const pick = (key: string) => { onChange(preset(key)); setOpen(false); };
+  const valid = (start || end) && !(start && end && start > end);
+  function applyCustom() {
+    if (!valid) return;
+    onChange({ key: "custom", from: start ? localMidnight(start) : undefined, to: end ? localMidnight(end) + DAY : undefined });
+    setOpen(false);
   }
 
-  const input = "h-9 rounded-lg border border-line bg-card px-2 text-sm outline-none focus:border-accent";
+  const label = value.key === "all" ? "All time" : value.key === "custom" ? rangeLabel(value) : (rangeLabel(value) ?? "All time").replace(/^l/, "L");
+  const chip = (on: boolean) => `h-8 rounded-lg border px-3 text-sm tabular-nums ${on ? "border-accent bg-accent/10 font-semibold text-accent" : "border-line bg-card font-medium hover:bg-muted"}`;
+  const heading = "text-[11px] font-semibold tracking-wider text-subtle uppercase";
+  const input = "h-9 min-w-0 flex-1 rounded-lg border border-line bg-card px-2 text-sm outline-none focus:border-accent";
+
   return (
-    <div data-tour="date-filter" className="flex flex-wrap items-center gap-2">
-      <select aria-label="Date range" value={value.key}
-        onChange={(e) => (e.target.value === "custom" ? applyCustom(start, end) : onChange(preset(e.target.value)))}
-        className={input}>
-        <option value="all">All time</option>
-        <option value="30d">Last 30 days</option>
-        <option value="90d">Last 90 days</option>
-        <option value="365d">Last 12 months</option>
-        {years.length > 0 && (
-          <optgroup label="Whole year">
-            {years.map((y) => <option key={y} value={`year:${y}`}>{y}</option>)}
-          </optgroup>
-        )}
-        <option value="custom">Custom dates…</option>
-      </select>
-      {custom && (
-        <>
-          <input type="date" aria-label="Start date" value={start} max={end || undefined}
-            onChange={(e) => applyCustom(e.target.value, end)} className={input} />
-          <span className="text-sm text-subtle">to</span>
-          <input type="date" aria-label="End date" value={end} min={start || undefined}
-            onChange={(e) => applyCustom(start, e.target.value)} className={input} />
-        </>
+    <div ref={wrap} data-tour="date-filter" className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="dialog" aria-expanded={open}
+        className={`inline-flex h-9 items-center gap-2 rounded-lg border bg-card px-3 text-sm font-medium hover:bg-muted ${value.key === "all" ? "border-line" : "border-accent"}`}>
+        <svg viewBox="0 0 24 24" className="size-4 text-subtle" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+          <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" />
+        </svg>
+        <span className="whitespace-nowrap">{label}</span>
+        <svg viewBox="0 0 24 24" className="size-3.5 text-subtle" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+
+      {open && (
+        <div role="dialog" aria-label="Date range"
+          className="absolute top-full left-0 z-40 mt-2 flex w-[min(340px,calc(100vw-32px))] flex-col gap-2.5 rounded-xl border border-line bg-card p-4 shadow-xl sm:right-0 sm:left-auto">
+          <div className={heading}>Quick</div>
+          <div className="flex flex-wrap gap-1.5">
+            {QUICK.map(([key, text]) => (
+              <button key={key} type="button" onClick={() => pick(key)} aria-pressed={value.key === key} className={chip(value.key === key)}>{text}</button>
+            ))}
+          </div>
+          {years.length > 0 && (
+            <>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className={heading}>Whole year</span>
+                <span className="text-xs text-subtle">newest → oldest email</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[...years].sort((a, b) => b - a).map((y) => (
+                  <button key={y} type="button" onClick={() => pick(`year:${y}`)} aria-pressed={value.key === `year:${y}`}
+                    className={chip(value.key === `year:${y}`)}>{y}</button>
+                ))}
+              </div>
+            </>
+          )}
+          <div className={`${heading} mt-1`}>Custom dates</div>
+          <div className="flex items-center gap-2">
+            <input type="date" aria-label="Start date" value={start} max={end || undefined} onChange={(e) => setStart(e.target.value)} className={input} />
+            <span className="text-sm text-subtle">to</span>
+            <input type="date" aria-label="End date" value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} className={input} />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-line pt-3">
+            <button type="button" onClick={() => setOpen(false)} className="h-9 rounded-lg border border-line px-3 text-sm font-medium hover:bg-muted">Cancel</button>
+            <button type="button" onClick={applyCustom} disabled={!valid}
+              className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">Apply dates</button>
+          </div>
+        </div>
       )}
     </div>
   );

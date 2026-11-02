@@ -142,7 +142,7 @@ const FEATURES = [
   },
   {
     title: "Save attachments in bulk",
-    text: "Download every statement or invoice from the senders you pick — PDF, images or any format. Runs in the background, with a download history.",
+    text: "See how many files each sender sent, then download every statement or invoice in one go — PDF, images or any format. Runs in the background.",
     isNew: true,
   },
   {
@@ -158,9 +158,9 @@ const FEATURES = [
 
 // Shown as a pill in the hero; update with each feature release.
 const WHATS_NEW = {
-  version: "1.8",
-  text: "Save attachments from any sender in bulk",
-  href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.8.1",
+  version: "1.9",
+  text: "A fresh new look, and see how many files each sender sent",
+  href: "https://github.com/ravimehra9911/mailclean/releases/tag/v1.9.0",
 };
 
 const SHOTS = [

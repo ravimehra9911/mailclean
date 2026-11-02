@@ -13,7 +13,7 @@ import { DownloadsPage, DownloadsPill, useDownloads } from "./Downloads";
 import { UpdateBanner, useUpdates } from "./Updates";
 import { api, fmtNum, pct, type Account, type Overview } from "./api";
 import { SendersTable, type KeepOptions } from "./SendersTable";
-import { CategoryFilter, type GmailCategory } from "./categories";
+import { CATEGORY_INFO, type GmailCategory } from "./categories";
 import { VolumeChart } from "./VolumeChart";
 import { RulesPage } from "./Rules";
 import { AppsAccess } from "./AppsAccess";
@@ -131,20 +131,21 @@ export default function Dashboard() {
   }, [syncing, loadAccounts, refresh]);
 
   if (lock?.locked) {
-    return <LockScreen onUnlocked={(wasReset) => {
+    return <div className="brand"><LockScreen onUnlocked={(wasReset) => {
       setLock({ enabled: !wasReset, locked: false });
       if (wasReset) { setTab("overview"); setAccountId(""); toast("MailClean was reset — connect an account to start again"); }
       loadAccounts().catch(() => {});
       refresh();
-    }} />;
+    }} /></div>;
   }
-  if (lock === null || accounts === null) return <div className="grid min-h-screen place-items-center text-subtle">Loading…</div>;
+  if (lock === null || accounts === null) return <div className="brand grid min-h-screen place-items-center text-subtle">Loading…</div>;
 
   const changed = () => { refresh(); loadAccounts(); };
 
   return (
-    <div className="min-h-screen md:flex">
-      <Sidebar tab={tab} setTab={openTab} accountCount={accounts.length} downloading={downloads.running.length} version={about.version} demo={about.demo}
+    <div className="brand min-h-screen md:flex">
+      <Sidebar tab={tab} setTab={openTab} accounts={accounts} accountId={accountId} setAccountId={setAccountId} inboxCounts={ov?.inboxes} downloading={downloads.running.length} version={about.version} demo={about.demo}
+        updateAvailable={!!updates.info?.available}
         onLock={lock.enabled ? () => { fetch("/api/lock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "lock" }) })
           .finally(() => setLock({ enabled: true, locked: true })); } : undefined} />
 
@@ -169,7 +170,7 @@ export default function Dashboard() {
           <AboutPage version={about.version} updates={updates} />
         ) : tab === "downloads" ? (
           <>
-            <h1 className="mb-6 text-2xl font-semibold">Downloads</h1>
+            <h1 className="mb-6 text-[28px]">Downloads</h1>
             <DownloadsPage root={downloads.root} downloads={downloads.downloads} reload={downloads.reload} demo={about.demo} toast={toast} />
           </>
         ) : accounts.length === 0 ? (
@@ -177,13 +178,19 @@ export default function Dashboard() {
         ) : (
           <>
             <header className="mb-6 flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold">{tab === "apps" ? "Accounts and apps" : tab.charAt(0).toUpperCase() + tab.slice(1)}</h1>
+              <h1 className="text-[28px]">{tab === "apps" ? "Accounts and apps" : tab.charAt(0).toUpperCase() + tab.slice(1)}</h1>
               {tab !== "accounts" && tab !== "rules" && tab !== "apps" && (
                 <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                   <DateFilter value={range} years={ov?.years ?? []} onChange={setRange} />
-                  <CategoryFilter value={category} options={ov?.categories ?? []} onChange={setCategory} />
-                  <select data-tour="account-filter" aria-label="Account" value={accountId} onChange={(e) => setAccountId(e.target.value)}
-                    className="h-9 rounded-lg border border-line bg-card px-2 text-sm">
+                  {category && (
+                    <button onClick={() => setCategory("")} title="Show all Gmail tabs"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-accent bg-accent/10 px-3 text-sm font-medium text-accent hover:bg-accent/15">
+                      {CATEGORY_INFO[category].label} <span aria-hidden>✕</span>
+                    </button>
+                  )}
+                  {/* On phones the sidebar's Mailboxes card is hidden, so the inbox is picked here. */}
+                  <select aria-label="Account" value={accountId} onChange={(e) => setAccountId(e.target.value)}
+                    className="h-9 rounded-lg border border-line bg-card px-2 text-sm md:hidden">
                     <option value="">All accounts ({accounts.length})</option>
                     {accounts.map((a) => <option key={a.id} value={a.id}>{providerInfo(a.provider).label} · {a.email}</option>)}
                   </select>
@@ -197,23 +204,23 @@ export default function Dashboard() {
             {syncing && ["overview", "senders", "newsletters"].includes(tab) && <SyncBanner accounts={accounts} />}
             {tab === "overview" && ov && (
               <div className="space-y-6">
-                <Headline ov={ov} accounts={accounts} period={rangeLabel(range)} onAccount={setAccountId} />
+                <Headline ov={ov} accounts={accounts} period={rangeLabel(range)} onAccount={setAccountId} onAllSenders={() => openTab("senders")} />
+                <CleanupNext ov={ov} onPick={(p) => {
+                  if (p === "never-opened") { setSendersFilter("mostly-unread"); setTab("senders"); }
+                  else if (p === "old") { setRange({ key: "custom", to: ov.suggestions.old.before }); openTab("senders"); }
+                  else openTab("newsletters");
+                }} />
                 <div className={`grid gap-6 ${ov.categories.length ? "lg:grid-cols-5" : ""}`}>
                   <div className={ov.categories.length ? "lg:col-span-3" : ""}>
-                    <CleanupNext ov={ov} onPick={(p) => {
-                      if (p === "never-opened") { setSendersFilter("mostly-unread"); setTab("senders"); }
-                      else if (p === "old") { setRange({ key: "custom", to: ov.suggestions.old.before }); openTab("senders"); }
-                      else openTab("newsletters");
-                    }} />
+                    <Card title="Emails received" sub={`per week, ${rangeLabel(range) ?? "last 6 months"}`}>
+                      <VolumeChart daily={ov.daily} />
+                    </Card>
                   </div>
                   {ov.categories.length > 0 && (
                     <div className="lg:col-span-2"><GmailTabsList categories={ov.categories} selected={category} onSelect={setCategory} /></div>
                   )}
                 </div>
-                <Card title="Emails received" sub={`per week, ${rangeLabel(range) ?? "last 6 months"}`}>
-                  <VolumeChart daily={ov.daily} />
-                </Card>
-                <Card title="Top senders" sub="who fills your inbox" action={<button onClick={() => openTab("senders")} className="text-sm text-accent">View all →</button>}>
+                <Card title="Who fills your inbox" sub="your biggest senders" action={<button onClick={() => openTab("senders")} className="text-sm font-medium text-accent">All senders →</button>}>
                   <div data-tour="senders-table"><SendersTable accountId={accountId} accountLabels={accountLabels} range={range} category={category} keep={keep} compact pageSize={10} refreshKey={refreshKey} onChanged={changed} toast={toast} /></div>
                 </Card>
               </div>
@@ -267,7 +274,7 @@ function Card({ title, sub, action, children }: { title: string; sub?: string; a
   return (
     <section className="rounded-xl border border-line bg-card p-5">
       <div className="mb-4 flex items-baseline gap-2">
-        <h2 className="font-semibold">{title}</h2>
+        <h2 className="text-lg">{title}</h2>
         {sub && <span className="text-sm text-subtle">{sub}</span>}
         <div className="ml-auto">{action}</div>
       </div>
@@ -276,27 +283,13 @@ function Card({ title, sub, action, children }: { title: string; sub?: string; a
   );
 }
 
-function ago(ms: number): string {
-  const m = Math.round((Date.now() - ms) / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h} h ago`;
-  return `${Math.round(h / 24)} d ago`;
-}
-
 /**
  * Rescans the shown accounts so changes made elsewhere (e.g. emails deleted in Gmail) are picked up.
- * Shows when the data was last synced.
  */
 function SyncButton({ accounts, demo, onStarted, toast }: {
   accounts: Account[]; demo: boolean; onStarted: () => void; toast: (m: string, k?: "ok" | "err") => void;
 }) {
-  const [, tick] = useState(0);
-  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 60_000); return () => clearInterval(t); }, []);
   const busy = accounts.some((a) => a.sync_status === "syncing");
-  const times = accounts.map((a) => a.last_sync_at).filter((t): t is number => !!t);
-  const last = times.length ? Math.min(...times) : null;
 
   async function sync() {
     if (demo) { toast("The demo uses sample data — in the app, Sync rescans your mailbox."); return; }
@@ -315,7 +308,6 @@ function SyncButton({ accounts, demo, onStarted, toast }: {
         <IconRefresh className={`size-4 ${busy ? "animate-spin" : ""}`} />
         {busy ? "Syncing…" : "Sync"}
       </button>
-      {last && !busy && <span className="hidden text-xs text-subtle lg:inline">Synced {ago(last)}</span>}
     </div>
   );
 }
